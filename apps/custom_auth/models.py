@@ -96,7 +96,7 @@ class User(AbstractBaseUser, PermissionsMixin):
             self.scopus_id = None
         try:
             this = User.objects.get(id=self.id)
-            if this.profile_picture != self.profile_picture and this.profile_picture != 'profile_pictures/default_profile_picture.png':
+            if this.profile_picture != self.profile_picture and this.profile_picture != 'apps/media/profile_pictures/default_profile_picture.png':
                 this.profile_picture.delete(save=False)
         except:
             pass

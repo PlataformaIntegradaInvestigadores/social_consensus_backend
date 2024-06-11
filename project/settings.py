@@ -6,24 +6,26 @@ from datetime import timedelta
 load_dotenv()  # Carga las variables de entorno del archivo .env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv(
-    'SECRET_KEY', 'django-insecure-2&dn&!a*l1d-p!u3xw8s)f9xbsa%i4uh2pf*qw@djt0va@pf2e')
+    'SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Convert string "True" from .env to boolean True
 DEBUG = os.getenv('DEBUG') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 # Application definition
 
+
 INSTALLED_APPS = [
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -39,6 +41,7 @@ INSTALLED_APPS = [
 # ada
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -49,6 +52,10 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'project.urls'
+
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:4200",
+# ]
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:4200',
@@ -156,6 +163,8 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
+# URL base para servir archivos media
+MEDIA_URL = '/media/'
 
-MEDIA_URL = 'apps/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Ruta del sistema de archivos donde se almacenarán los archivos media
+MEDIA_ROOT = os.path.join(BASE_DIR, 'apps/media')
