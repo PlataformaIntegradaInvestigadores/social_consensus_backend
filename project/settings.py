@@ -168,3 +168,6 @@ MEDIA_URL = '/media/'
 
 # Ruta del sistema de archivos donde se almacenarán los archivos media
 MEDIA_ROOT = os.path.join(BASE_DIR, 'apps/media')
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
