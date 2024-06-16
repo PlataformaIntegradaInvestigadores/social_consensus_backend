@@ -7,13 +7,56 @@ import string
 import random
 
 
-def generate_random_id(length=10):
+def get_post_file_filepath(instance, filename):
+    ext = filename.split('.')[-1]
+    filename = f"{uuid.uuid4()}.{ext}"
+    return os.path.join('post_files/', filename)
+
+
+def generate_unique_id(length=10):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
+class Post(models.Model):
+    id = models.CharField(max_length=10, primary_key=True,
+                          default=generate_unique_id, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL,
+                             on_delete=models.CASCADE, related_name='posts')
+    description = models.TextField()
+    created_at = models.DateTimeField(
+        null=True, blank=True)  # Allow null and blank
+
+    class Meta:
+        db_table = 'POST'
+
+
+class PostFile(models.Model):
+    post = models.ForeignKey(
+        Post, on_delete=models.CASCADE, related_name='files')
+    file = models.FileField(
+        upload_to=get_post_file_filepath, blank=True, null=True)
+
+    class Meta:
+        db_table = 'POST_FILES'
+
+
+class ProfileInformation(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile_information')
+    about_me = models.TextField(blank=True, null=True)
+    disciplines = models.JSONField(default=list, blank=True)
+    contact_info = models.JSONField(default=dict, blank=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s Profile Information"
+
+    class Meta:
+        db_table = 'INFORMATION'  # Especificar el nombre de la tabla
 
 
 class Group(models.Model):
     id = models.CharField(max_length=10, primary_key=True,
-                          default=generate_random_id, editable=False)
+                          default=generate_unique_id, editable=False)
     title = models.CharField(max_length=255)
     description = models.TextField()
     admin = models.ForeignKey(
@@ -67,7 +110,7 @@ def get_profile_picture_filepath(instance, filename):
 
 class User(AbstractBaseUser, PermissionsMixin):
     id = models.CharField(max_length=10, primary_key=True,
-                          default=generate_random_id, editable=False)
+                          default=generate_unique_id, editable=False)
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
     username = models.EmailField(unique=True)
