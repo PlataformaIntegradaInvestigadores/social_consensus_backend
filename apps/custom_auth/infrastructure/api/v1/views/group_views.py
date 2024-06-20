@@ -11,9 +11,11 @@ class GroupListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
+        """Asigna el usuario actual como administrador al crear un nuevo grupo."""
         serializer.save(admin=self.request.user)
 
     def create(self, request, *args, **kwargs):
+        """Maneja la creación de un nuevo grupo."""
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             self.perform_create(serializer)

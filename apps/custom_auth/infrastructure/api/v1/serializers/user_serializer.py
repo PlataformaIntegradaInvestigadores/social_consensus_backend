@@ -13,6 +13,7 @@ class UserListSerializer(serializers.ModelSerializer):
 class UserTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
+        """Agrega el ID del usuario al token."""
         token = super().get_token(user)
         token['user_id'] = user.id
         return token
@@ -25,6 +26,7 @@ class UserSerializer(serializers.ModelSerializer):
                   'website', 'investigation_camp', 'profile_picture', 'email_institution']
 
     def validate_website(self, value):
+        """Valida y ajusta la URL del sitio web."""
         if value and not value.startswith(('http://', 'https://')):
             value = 'http://' + value
         return value
@@ -39,5 +41,6 @@ class RegisterSerializer(serializers.ModelSerializer):
                   'username', 'scopus_id', 'password']
 
     def create(self, validated_data):
+        """Crea un nuevo usuario y encripta su contraseña."""
         validated_data['password'] = make_password(validated_data['password'])
         return super().create(validated_data)

@@ -8,10 +8,12 @@ import random
 
 
 def generate_unique_id(length=10):
+    """Genera un ID único con la longitud especificada."""
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
 def get_profile_picture_filepath(instance, filename):
+    """Genera una ruta de archivo para una nueva imagen de perfil."""
     ext = filename.split('.')[-1]
     filename = f"{uuid.uuid4()}.{ext}"
     return os.path.join('profile_pictures/', filename)
@@ -19,8 +21,9 @@ def get_profile_picture_filepath(instance, filename):
 
 class UserManager(BaseUserManager):
     def create_user(self, username, password=None, **extra_fields):
+        """Crea y retorna un usuario regular con el username y password dados."""
         if not username:
-            raise ValueError('The Email field must be set')
+            raise ValueError('El campo Email debe ser establecido')
         email = self.normalize_email(username)
         user = self.model(username=email, **extra_fields)
         user.set_password(password)
@@ -28,13 +31,14 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, username, password=None, **extra_fields):
+        """Crea y retorna un superusuario con el username y password dados."""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
 
         if extra_fields.get('is_staff') is not True:
-            raise ValueError('Superuser must have is_staff=True.')
+            raise ValueError('El superusuario debe tener is_staff=True.')
         if extra_fields.get('is_superuser') is not True:
-            raise ValueError('Superuser must have is_superuser=True.')
+            raise ValueError('El superusuario debe tener is_superuser=True.')
 
         return self.create_user(username, password, **extra_fields)
 
@@ -66,13 +70,15 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.username
 
     def save(self, *args, **kwargs):
+        """Sobrescribe el método save para manejar la eliminación de la imagen de perfil y la validación del ID de SCOPUS."""
         if self.scopus_id == '':
             self.scopus_id = None
         try:
             this = User.objects.get(id=self.id)
-            if this.profile_picture != self.profile_picture and this.profile_picture != 'apps/media/profile_pictures/default_profile_picture.png':
+            default_profile_picture = 'profile_pictures/default_profile_picture.png'
+            if this.profile_picture != self.profile_picture and this.profile_picture.path != default_profile_picture:
                 this.profile_picture.delete(save=False)
-        except:
+        except User.DoesNotExist:
             pass
         super(User, self).save(*args, **kwargs)
 

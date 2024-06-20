@@ -10,25 +10,28 @@ class ProfileInformationDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_object(self):
+        """Obtiene o crea la información de perfil del usuario actual."""
         profile_information, created = ProfileInformation.objects.get_or_create(
             user=self.request.user)
         return profile_information
 
     def perform_update(self, serializer):
+        """Verifica que el usuario tenga permiso para actualizar el perfil."""
         if self.request.user.id != serializer.instance.user.id:
             raise PermissionDenied(
-                "You do not have permission to edit this profile.")
+                "No tienes permiso para editar este perfil.")
         serializer.save()
 
     def perform_destroy(self, instance):
+        """Verifica que el usuario tenga permiso para eliminar el perfil y que la información del perfil esté vacía."""
         if self.request.user.id != instance.user.id:
             raise PermissionDenied(
-                "You do not have permission to delete this profile.")
+                "No tienes permiso para eliminar este perfil.")
         if not instance.about_me and not instance.disciplines and not instance.contact_info:
             instance.delete()
         else:
             raise ValidationError(
-                "Profile information must be empty to be deleted.")
+                "La información del perfil debe estar vacía para ser eliminada.")
 
 
 class PublicProfileInformationDetailView(generics.RetrieveAPIView):

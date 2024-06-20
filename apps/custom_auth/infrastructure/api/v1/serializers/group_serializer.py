@@ -12,6 +12,7 @@ class GroupSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'admin']
 
     def create(self, validated_data):
+        """Crea un nuevo grupo y asigna el usuario actual como administrador y miembro."""
         request = self.context.get('request')
         validated_data['admin'] = request.user
         users = validated_data.pop('users', [])
