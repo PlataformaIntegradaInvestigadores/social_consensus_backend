@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions
 from rest_framework.parsers import MultiPartParser, FormParser
-from apps.custom_auth.models import Post
+from apps.custom_auth.models import Post, PostFile
 from apps.custom_auth.infrastructure.api.v1.serializers.post_serializer import PostSerializer
 
 
@@ -36,3 +36,11 @@ class PostDeleteView(generics.DestroyAPIView):
         """Filtra las publicaciones para asegurarse de que el usuario actual solo pueda eliminar sus propias publicaciones."""
         queryset = super().get_queryset()
         return queryset.filter(user=self.request.user)
+
+    def perform_destroy(self, instance):
+        """Elimina los archivos asociados antes de eliminar la publicación."""
+        files = instance.files.all()
+        for file in files:
+            file.file.delete()  # Elimina el archivo físico
+            file.delete()  # Elimina el registro del archivo
+        instance.delete()  # Elimina la publicación
