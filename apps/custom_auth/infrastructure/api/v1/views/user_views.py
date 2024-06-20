@@ -13,6 +13,7 @@ class UserListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        """Excluye al usuario actual de la lista de usuarios."""
         return User.objects.exclude(id=self.request.user.id)
 
 
@@ -23,13 +24,15 @@ class UserUpdateView(generics.UpdateAPIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def get_object(self):
+        """Verifica que el usuario tenga permiso para actualizar el perfil."""
         obj = super().get_object()
         if obj.id != self.request.user.id:
             raise PermissionDenied(
-                "You do not have permission to edit this user.")
+                "No tienes permiso para editar este usuario.")
         return obj
 
     def update(self, request, *args, **kwargs):
+        """Permite actualizaciones parciales del usuario."""
         kwargs['partial'] = True
         return super().update(request, *args, **kwargs)
 
@@ -48,6 +51,7 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
     def create(self, request, *args, **kwargs):
+        """Crea un nuevo usuario y maneja los errores de validación."""
         serializer = self.get_serializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
@@ -60,6 +64,7 @@ class RegisterView(generics.CreateAPIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def format_errors(self, errors):
+        """Formatea los errores de validación personalizados."""
         custom_errors = {}
         for field, field_errors in errors.items():
             custom_errors[field] = [self.get_custom_error_message(
@@ -67,6 +72,7 @@ class RegisterView(generics.CreateAPIView):
         return {'errors': custom_errors}
 
     def get_custom_error_message(self, field, error):
+        """Obtiene mensajes de error personalizados."""
         custom_messages = {
             'username': {
                 'user with this username already exists.': "User with this EMAIL already exists."

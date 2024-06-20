@@ -13,9 +13,10 @@ class PostSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Post
-        fields = ['id', 'description', 'files', 'created_at']  # Include 'id'
+        fields = ['id', 'description', 'files', 'created_at']
 
     def create(self, validated_data):
+        """Crea una nueva publicación y adjunta archivos si se proporcionan."""
         request = self.context.get('request')
         user = request.user
 
