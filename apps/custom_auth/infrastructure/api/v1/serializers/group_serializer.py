@@ -26,3 +26,10 @@ class GroupSerializer(serializers.ModelSerializer):
         group.users.add(*users)
 
         return group
+    
+# Nuevo serializador para listar grupos del usuario autenticado
+class UserGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = ['id', 'title', 'description']
+        read_only_fields = ['id', 'title', 'description']
