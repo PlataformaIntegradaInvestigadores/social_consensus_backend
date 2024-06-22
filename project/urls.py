@@ -45,7 +45,6 @@ urlpatterns = [
     path('api/', include('apps.custom_auth.infrastructure.api.v1.urls.root_url')),
 ]
 
-
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL,
                           document_root=settings.MEDIA_ROOT)
