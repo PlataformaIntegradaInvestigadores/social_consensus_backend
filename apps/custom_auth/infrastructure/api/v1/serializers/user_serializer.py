@@ -31,6 +31,15 @@ class UserSerializer(serializers.ModelSerializer):
             value = 'http://' + value
         return value
 
+    def update(self, instance, validated_data):
+        profile_picture = validated_data.get(
+            'profile_picture', instance.profile_picture)
+
+        if isinstance(profile_picture, str) and profile_picture == instance.profile_picture.url:
+            validated_data['profile_picture'] = instance.profile_picture
+
+        return super().update(instance, validated_data)
+
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
