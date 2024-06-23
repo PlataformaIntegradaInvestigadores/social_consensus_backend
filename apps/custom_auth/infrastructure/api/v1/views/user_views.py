@@ -24,7 +24,6 @@ class UserUpdateView(generics.UpdateAPIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def get_object(self):
-        """Verifica que el usuario tenga permiso para actualizar el perfil."""
         obj = super().get_object()
         if obj.id != self.request.user.id:
             raise PermissionDenied(
@@ -32,9 +31,14 @@ class UserUpdateView(generics.UpdateAPIView):
         return obj
 
     def update(self, request, *args, **kwargs):
-        """Permite actualizaciones parciales del usuario."""
+        print("Datos recibidos en la solicitud de actualización:", request.data)
+        if 'profile_picture' in request.data:
+            print("Imagen de perfil recibida:",
+                  request.data['profile_picture'])
         kwargs['partial'] = True
-        return super().update(request, *args, **kwargs)
+        response = super().update(request, *args, **kwargs)
+        print("Respuesta después de actualizar:", response.data)
+        return response
 
 
 class UserTokenObtainPairView(TokenObtainPairView):

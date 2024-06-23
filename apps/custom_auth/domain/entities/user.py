@@ -56,8 +56,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     institution = models.CharField(max_length=100, null=True, blank=True)
     email_institution = models.EmailField(null=True, blank=True)
     website = models.URLField(max_length=200, null=True, blank=True)
-    profile_picture = models.ImageField(upload_to=get_profile_picture_filepath,
-                                        default='profile_pictures/default_profile_picture.png', null=True, blank=True)
+    profile_picture = models.ImageField(
+        upload_to=get_profile_picture_filepath,
+        default='profile_pictures/default_profile_picture.png',
+        null=True,
+        blank=True
+    )
+
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
@@ -70,24 +75,26 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.username
 
     def save(self, *args, **kwargs):
-        """Sobrescribe el método save para manejar la eliminación de la imagen de perfil y la validación del ID de SCOPUS."""
         if self.scopus_id == '':
             self.scopus_id = None
         try:
             this = User.objects.get(id=self.id)
             default_profile_picture = 'profile_pictures/default_profile_picture.png'
+            # Asegurarse de no borrar la imagen por defecto
             if this.profile_picture != self.profile_picture and this.profile_picture.path != default_profile_picture:
                 this.profile_picture.delete(save=False)
         except User.DoesNotExist:
             pass
+
+        # Si la imagen de perfil es None, asignar la imagen por defecto
+        if not self.profile_picture:
+            self.profile_picture = 'profile_pictures/default_profile_picture.png'
+
         super(User, self).save(*args, **kwargs)
 
     class Meta:
         db_table = 'USER'
         constraints = [
-            models.UniqueConstraint(
-                fields=['scopus_id'],
-                name='unique_scopus_id',
-                condition=models.Q(scopus_id__isnull=False)
-            )
+            models.UniqueConstraint(fields=[
+                                    'scopus_id'], name='unique_scopus_id', condition=models.Q(scopus_id__isnull=False))
         ]

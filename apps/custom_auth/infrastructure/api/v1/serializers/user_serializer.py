@@ -26,10 +26,21 @@ class UserSerializer(serializers.ModelSerializer):
                   'website', 'investigation_camp', 'profile_picture', 'email_institution']
 
     def validate_website(self, value):
-        """Valida y ajusta la URL del sitio web."""
         if value and not value.startswith(('http://', 'https://')):
             value = 'http://' + value
         return value
+
+    def update(self, instance, validated_data):
+        print("Datos validados recibidos en el serializador:", validated_data)
+        profile_picture = validated_data.pop('profile_picture', None)
+        if profile_picture:
+            print("Nueva imagen de perfil:", profile_picture)
+            if profile_picture != instance.profile_picture:
+                instance.profile_picture.delete(save=False)
+            instance.profile_picture = profile_picture
+        instance = super().update(instance, validated_data)
+        print("Instancia después de actualizar:", instance)
+        return instance
 
 
 class RegisterSerializer(serializers.ModelSerializer):
