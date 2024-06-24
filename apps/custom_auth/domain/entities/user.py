@@ -80,20 +80,17 @@ class User(AbstractBaseUser, PermissionsMixin):
         try:
             this = User.objects.get(id=self.id)
             default_profile_picture = 'profile_pictures/default_profile_picture.png'
-            # Asegurarse de no borrar la imagen por defecto
             if this.profile_picture != self.profile_picture and this.profile_picture.path != default_profile_picture:
                 this.profile_picture.delete(save=False)
         except User.DoesNotExist:
             pass
-
-        # Si la imagen de perfil es None, asignar la imagen por defecto
         if not self.profile_picture:
             self.profile_picture = 'profile_pictures/default_profile_picture.png'
 
         super(User, self).save(*args, **kwargs)
 
     class Meta:
-        db_table = 'USER'
+        db_table = 'users'
         constraints = [
             models.UniqueConstraint(fields=[
                                     'scopus_id'], name='unique_scopus_id', condition=models.Q(scopus_id__isnull=False))
