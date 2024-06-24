@@ -25,7 +25,7 @@ class Post(models.Model):
         return f"Post by {self.user.username} on {self.created_at}"
 
     class Meta:
-        db_table = 'POST'
+        db_table = 'posts'
 
 class PostFile(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='files')
@@ -35,4 +35,4 @@ class PostFile(models.Model):
         return f"File for post {self.post.id}"
 
     class Meta:
-        db_table = 'POST_FILES'
+        db_table = 'post_files'
