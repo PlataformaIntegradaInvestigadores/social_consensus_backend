@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from django.urls import path, re_path
 from rest_framework_simplejwt.views import TokenRefreshView
-from apps.custom_auth.infrastructure.api.v1.views.group_views import UserGroupsListView
+from apps.custom_auth.infrastructure.api.v1.views.group_views import GroupDeleteView, GroupDetailView, GroupLeaveView, UserDetailViewtoGroup, UserGroupsListView
 from apps.custom_auth.views import *
 
 def test_view(request):
@@ -29,8 +29,18 @@ urlpatterns = [
          name='post-delete'),  # URL para eliminar post
      
      # Nueva ruta para listar grupos del usuario autenticado
-     #path('user/groups/', UserGroupsListView.as_view(), name='user-groups-list'),
+     #path('test/user/groups/', UserGroupsListView.as_view(), name='user-groups-list'),
+     
      # Ruta temporal para pruebas
      path('test/user/groups/', UserGroupsListView.as_view(), name='test-user-groups-list'),
-     path('test/', test_view, name='test-view'),  # Ruta de prueba básica
+     #path('test/', test_view, name='test-view'),  # Ruta de prueba básica
+
+
+    path('test/user/groups/<pk>/delete/', GroupDeleteView.as_view(), name='group-delete'),
+    path('test/user/groups/<pk>/leave/', GroupLeaveView.as_view(), name='group-leave'),
+
+    path('test/users/groups/<str:pk>/', UserDetailViewtoGroup.as_view(), name='user-detail'),
+
+    path('groups/<str:pk>/', GroupDetailView.as_view(), name='group-detail'),
+
 ]
