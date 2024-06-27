@@ -25,6 +25,7 @@ ALLOWED_HOSTS = ["*"]
 
 
 INSTALLED_APPS = [
+    'daphne',
     'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -34,6 +35,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'drf_yasg',
     'rest_framework',
+    'channels',
     'apps',
     'apps.concensus',
     'apps.custom_auth',
@@ -171,3 +173,14 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'apps/media')
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
+
+ASGI_APPLICATION = 'project.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [("redis", 6379)],
+        },
+    },
+}
