@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from django.urls import path, re_path
 from rest_framework_simplejwt.views import TokenRefreshView
-from apps.custom_auth.infrastructure.api.v1.views.group_views import GroupDeleteView, GroupDetailView, GroupLeaveView, UserDetailViewtoGroup, UserGroupsListView
+from apps.custom_auth.infrastructure.api.v1.views.group_views import GroupDeleteView, GroupDetailView, GroupLeaveView, RemoveMemberView, UserDetailViewtoGroup, UserGroupsListView
 from apps.custom_auth.views import *
 
 def test_view(request):
@@ -42,5 +42,7 @@ urlpatterns = [
     path('test/users/groups/<str:pk>/', UserDetailViewtoGroup.as_view(), name='user-detail'),
 
     path('groups/<str:pk>/', GroupDetailView.as_view(), name='group-detail'),
+
+     path('groups/<str:pk>/remove-member/<str:user_id>/', RemoveMemberView.as_view(), name='remove-member'),
 
 ]

@@ -102,3 +102,26 @@ class GroupDetailView(generics.RetrieveAPIView):
             return Response(serializer.data)
         else:
             raise PermissionDenied("You do not have permission to access this group.")
+
+
+""" Agregar view para eliminar un miembro en base a su id, solo si esta autenticado y es propietario del grupo """
+class RemoveMemberView(generics.GenericAPIView):
+    queryset = Group.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        group = self.get_object()
+        user_id = self.kwargs.get('user_id')
+        try:
+            user_to_remove = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'detail': 'User does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if group.admin != request.user:
+            return Response({'detail': 'You do not have permission to remove this member.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if user_to_remove == request.user:
+            return Response({'detail': 'You cannot remove yourself from the group.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        group.users.remove(user_to_remove)
+        return Response({'detail': 'Member removed successfully.'}, status=status.HTTP_200_OK)
