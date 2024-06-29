@@ -5,6 +5,10 @@ from datetime import timedelta
 
 load_dotenv()  # Carga las variables de entorno del archivo .env
 
+# Configuración de Redis
+REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
+REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

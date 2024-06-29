@@ -25,6 +25,8 @@ class TopicViewSet(viewsets.ModelViewSet):
         serializer = TopicSerializer(topics, many=True).data
         return Response({'data':serializer},status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
+""" Devuelve un json con 10 temas aleatorios que no estén asignados a ningún grupo y
+ asigna el id del grupo a los topics y los guarda en la base de datos """
 class RandomRecommendedTopicView(generics.ListAPIView):
     serializer_class = RecommendedTopicSerializer
     permission_classes = [permissions.IsAuthenticated]
