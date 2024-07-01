@@ -17,6 +17,7 @@ class RecommendedTopicSerializer(serializers.ModelSerializer):
         model = RecommendedTopic
         fields = ['id', 'topic_name', 'group']
 
+""" Para convertir las instancias de este modelo a JSON cuando enviemos mensajes a través del WebSocket """
 class TopicAddedUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = TopicAddedUser
