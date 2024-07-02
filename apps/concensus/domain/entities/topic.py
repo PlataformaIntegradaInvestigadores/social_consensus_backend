@@ -25,3 +25,10 @@ class TopicAddedUser(models.Model):
 
     def __str__(self):
         return f"{self.user.username} added {self.topic.topic_name} to {self.group.name}"
+    
+
+#select * from "concensus_recommendedtopic";
+#select * from "concensus_topicaddeduser";
+
+    #TRUNCATE TABLE "concensus_recommendedtopic" CASCADE;
+    #TRUNCATE TABLE "concensus_topicaddeduser" CASCADE;

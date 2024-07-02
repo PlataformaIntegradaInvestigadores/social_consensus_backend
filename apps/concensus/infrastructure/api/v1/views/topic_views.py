@@ -6,6 +6,7 @@ from drf_yasg import openapi
 from rest_framework import status
 from django.apps import apps 
 from apps.concensus.domain.entities.topic import RecommendedTopic, Topic, TopicAddedUser
+from apps.concensus.domain.entities.notification import NotificationPhaseOne
 from apps.concensus.infrastructure.api.v1.serializers.topic_serializer import RecommendedTopicSerializer, TopicAddedUserSerializer, TopicSerializer
 from rest_framework.views import APIView
 from channels.layers import get_channel_layer
@@ -83,6 +84,7 @@ class GroupTopicsView(generics.ListAPIView):
         })
 
 """ Para agregar nuevos temas a la BD que luego disparará la notificación por WebSocket """
+""" El endpoint REST se encargará de validar los datos, agregar el topic, crear la notificación y enviar el mensaje por WebSocket. """
 class AddTopicView(APIView):
     def post(self, request, group_id):
         data = request.data
@@ -94,7 +96,9 @@ class AddTopicView(APIView):
 
         RecommendedTopic = apps.get_model('concensus', 'RecommendedTopic')
         TopicAddedUser = apps.get_model('concensus', 'TopicAddedUser')
-        
+        User = apps.get_model('custom_auth', 'User')
+        Group = apps.get_model('custom_auth', 'Group')
+
        # Verificar si el tópico ya existe en RecommendedTopic para el grupo específico
         existing_recommended_topic = RecommendedTopic.objects.filter(topic_name=topic_name, group_id=group_id).first()
         if existing_recommended_topic:
@@ -115,6 +119,17 @@ class AddTopicView(APIView):
 
         serializer = TopicAddedUserSerializer(topic_added)
 
+         # Crear notificación
+        user = User.objects.get(id=user_id)
+        group = Group.objects.get(id=group_id)
+        message = f'{user.first_name} {user.last_name} 📥 added topic <i>{topic_name}</i>'
+        NotificationPhaseOne.objects.create(
+            user=user,
+            group=group,
+            notification_type='new_topic',
+            message=message
+        )
+
         # Enviar notificación por WebSocket
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -127,16 +142,10 @@ class AddTopicView(APIView):
                     'topic_name': topic_added.topic.topic_name,
                     'user_id': topic_added.user_id,
                     'group_id': topic_added.group_id,
-                    'added_at': topic_added.added_at.isoformat()
+                    'added_at': topic_added.added_at.isoformat(),
+                    'notification_message': message
                 }
             }
         )
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
-#select * from "concensus_recommendedtopic";
-#select * from "concensus_topicaddeduser";
-
-    #TRUNCATE TABLE "concensus_recommendedtopic" CASCADE;
-    #TRUNCATE TABLE "concensus_topicaddeduser" CASCADE;

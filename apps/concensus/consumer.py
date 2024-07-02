@@ -1,3 +1,4 @@
+""" Se encargará de recibir y enviar mensajes a los usuarios conectados """
 import json
 import logging
 import redis
@@ -5,8 +6,6 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async, async_to_sync
 from django.apps import apps
 from django.conf import settings
-
-
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +47,15 @@ class GroupConsumer(AsyncWebsocketConsumer):
 
     # 2. Método de Envío de Mensajes del WebSocket del Servidor
     async def receive(self, text_data):
+
+        pass
+
         """
         Método asíncrono llamado cuando se recibe un mensaje del cliente.
         Procesa el mensaje, creando o obteniendo un tema recomendado y añadiéndolo al grupo.
         Luego, envía un mensaje al grupo con los detalles del tema añadido.
         """
-        try:
+        """ try:
             data = json.loads(text_data)
             logger.info(f'Data received: {data}')  # Loguear datos recibidos
 
@@ -83,7 +85,7 @@ class GroupConsumer(AsyncWebsocketConsumer):
         except KeyError as e:
             logger.error(f'Error: Missing key in data received: {e}')
         except Exception as e:
-            logger.error(f'Unexpected error: {e}')
+            logger.error(f'Unexpected error: {e}') """
 
 
     async def group_message(self, event):
@@ -101,10 +103,16 @@ class GroupConsumer(AsyncWebsocketConsumer):
     def increment_connection_count(self):
         """
         Incrementa el contador de conexiones activas en el grupo y notifica a los clientes.
+        
+        TODO: AGREGAR EL ID DEL USUARIO MAS ID DE GRUPO PARA SUAMR +1 SI AUN NO ESTA EL REGISTRO
+        Actualmente si se detiene docker y luego se inicia se quedan guardadas las conexiones y toca borrar manualmente
+        esto se controlaria con el id de usuario y el id de grupo sumar +1 si aun no esta el registro. 
+        Si se detiene el docker se construye desde cero no hay problema ya q los datos se crean segun la interacion del usuario
         """
         connection_count = self.get_connection_count() + 1
         self.set_connection_count(connection_count)
         self.notify_connection_count(connection_count)
+
 
     @sync_to_async
     def decrement_connection_count(self):
@@ -117,6 +125,7 @@ class GroupConsumer(AsyncWebsocketConsumer):
         self.set_connection_count(connection_count)
         self.notify_connection_count(connection_count)
 
+
     def get_connection_count(self):
         """
         Obtiene el número actual de conexiones activas desde Redis.
@@ -124,11 +133,13 @@ class GroupConsumer(AsyncWebsocketConsumer):
         connection_count = self.redis.get(self.group_name)
         return int(connection_count) if connection_count else 0
 
+
     def set_connection_count(self, count):
         """
         Establece el número de conexiones activas en Redis.
         """
         self.redis.set(self.group_name, count)
+
 
     def notify_connection_count(self, count):
         """
@@ -145,10 +156,10 @@ class GroupConsumer(AsyncWebsocketConsumer):
             }
         )
 
-    async def notify_new_topic(self, topic_added):
-        """
-        Notifica a los clientes que se ha añadido un nuevo tema al grupo.
-        """
+    """ async def notify_new_topic(self, topic_added):
+        
+        #Notifica a los clientes que se ha añadido un nuevo tema al grupo.
+       
         await self.channel_layer.group_send(
             self.group_name,
             {
@@ -162,7 +173,47 @@ class GroupConsumer(AsyncWebsocketConsumer):
                     'added_at': topic_added.added_at.isoformat()
                 }
             }
+        ) """
+        
+    """ Notificaciones de nuevo tema """    
+    """ async def notify_new_topic(self, topic_added):
+        message = f'{topic_added.user.username} 📥 added {topic_added.topic.topic_name}'
+        await self.create_notification(topic_added.user, topic_added.group, 'new_topic', message)
+        
+        await self.channel_layer.group_send(
+            self.group_name,
+            {
+                'type': 'group_message',
+                'message': {
+                    'type': 'new_topic',
+                    'id': topic_added.id,
+                    'topic_name': topic_added.topic.topic_name,
+                    'user_id': topic_added.user_id,
+                    'group_id': topic_added.group_id,
+                    'added_at': topic_added.added_at.isoformat(),
+                    'message2': message,
+                }
+            }
+        ) """
+
+    """ @sync_to_async
+    def create_notification(self, user, group, notification_type, message):
+        NotificationPhaseOne.objects.create(
+            user=user,
+            group=group,
+            notification_type=notification_type,
+            message=message
         )
+     """
+    """ @sync_to_async
+    def create_notification(self, user, group, notification_type, message):
+        NotificationPhaseOne = apps.get_model('concensus', 'NotificationPhaseOne').objects.create(
+            user=user,
+            group=group,
+            notification_type=notification_type,
+            message=message
+        ) """
+
 
 
 # concensus_recommendedtopic
