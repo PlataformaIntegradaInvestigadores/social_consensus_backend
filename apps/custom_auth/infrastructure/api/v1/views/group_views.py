@@ -1,5 +1,6 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from apps.concensus.domain.entities.topic import RecommendedTopic, TopicAddedUser
 from apps.custom_auth.domain.entities.user import User
 from apps.custom_auth.infrastructure.api.v1.serializers.user_serializer import UserListSerializer
 from apps.custom_auth.models import Group
@@ -45,8 +46,18 @@ class GroupDeleteView(generics.DestroyAPIView):
         group = self.get_object()
         if group.admin != request.user:
             return Response({'detail': 'You do not have permission to delete this group.'}, status=status.HTTP_403_FORBIDDEN)
-        return self.destroy(request, *args, **kwargs)
 
+        # Obtener los topics agregados por los usuarios del grupo
+        added_topic_ids = TopicAddedUser.objects.filter(group=group).values_list('topic_id', flat=True)
+
+        # Borrar los registros de RecommendedTopic correspondientes
+        RecommendedTopic.objects.filter(id__in=added_topic_ids).delete()
+
+        # Actualizar los registros restantes de RecommendedTopic para establecer el campo group a NULL
+        RecommendedTopic.objects.filter(group=group).update(group=None)
+        
+        return self.destroy(request, *args, **kwargs)
+    
 """ Para dejar un grupo """
 class GroupLeaveView(generics.GenericAPIView):
     queryset = Group.objects.all()
@@ -104,7 +115,7 @@ class GroupDetailView(generics.RetrieveAPIView):
             raise PermissionDenied("You do not have permission to access this group.")
 
 
-""" Agregar view para eliminar un miembro en base a su id, solo si esta autenticado y es propietario del grupo """
+""" para eliminar un miembro en base a su id, solo si esta autenticado y es propietario del grupo """
 class RemoveMemberView(generics.GenericAPIView):
     queryset = Group.objects.all()
     permission_classes = [permissions.IsAuthenticated]

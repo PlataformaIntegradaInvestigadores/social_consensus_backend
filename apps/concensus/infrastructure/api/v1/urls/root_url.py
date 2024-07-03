@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from django.urls import include, path
 
-from apps.concensus.infrastructure.api.v1.views.notification_views import NotificationListView
+from apps.concensus.infrastructure.api.v1.views.notification_views import NotificationListView, TopicVisitedView
 from apps.concensus.infrastructure.api.v1.views.topic_views import AddTopicView, GroupTopicsView, RandomRecommendedTopicView, RecommendedTopicsByGroupView, TopicsAddedByGroupView
 def test_view(request):
     return JsonResponse({"message": "Test URL of concensus works!"})
@@ -14,4 +14,5 @@ urlpatterns=[
     path('groups/<str:group_id>/topics/', GroupTopicsView.as_view(), name='group-topics'),
     path('groups/<str:group_id>/add-topic/', AddTopicView.as_view(), name='add-topic'),
     path('groups/<str:group_id>/notifications/', NotificationListView.as_view(), name='group-notifications'),
+    path('groups/<str:group_id>/topic-visited/', TopicVisitedView.as_view(), name='topic-visited'),
 ]
