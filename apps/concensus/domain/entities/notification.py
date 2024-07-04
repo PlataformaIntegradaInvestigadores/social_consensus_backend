@@ -9,8 +9,7 @@ class NotificationPhaseOne(models.Model):
         ('topic_visited', 'Topic Visited'),
         ('consensus_completed', 'Consensus Completed'),
         ('combined_search', 'Combined Search'),
-        ('topic_expert', 'Topic Expert'),
-        ('topic_junior', 'Topic Junior'),
+        ('user_expertise', 'User Expertise'),
     )
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
