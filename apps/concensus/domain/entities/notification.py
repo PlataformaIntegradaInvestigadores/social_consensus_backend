@@ -7,7 +7,7 @@ class NotificationPhaseOne(models.Model):
     NOTIFICATION_TYPES = (
         ('new_topic', 'New Topic'),
         ('topic_visited', 'Topic Visited'),
-        ('consensus_completed', 'Consensus Completed'),
+        ('phase_one_completed', 'Phase One Completed'),
         ('combined_search', 'Combined Search'),
         ('user_expertise', 'User Expertise'),
     )

@@ -1,3 +1,4 @@
+import logging
 import random
 from rest_framework import viewsets, generics, permissions, status
 from rest_framework.response import Response
@@ -11,6 +12,8 @@ from apps.concensus.infrastructure.api.v1.serializers.topic_serializer import Re
 from rest_framework.views import APIView
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+
+logger = logging.getLogger(__name__)
 
 class TopicViewSet(viewsets.ModelViewSet):
     serializer_class = TopicSerializer
@@ -48,14 +51,14 @@ class RandomRecommendedTopicView(generics.ListAPIView):
                 RecommendedTopic.objects.filter(id=topic['id']).update(group_id=group_id)
         return response
 
-""" Devuelve los topics de un grupo por su id de grupo """
+""" Devuelve los topics de un grupo por su id de grupo EN ORDEN ALFABÉTICO"""
 class RecommendedTopicsByGroupView(generics.ListAPIView):
     serializer_class = RecommendedTopicSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         group_id = self.kwargs['group_id']
-        return RecommendedTopic.objects.filter(group_id=group_id)
+        return RecommendedTopic.objects.filter(group_id=group_id).order_by('topic_name')
 
 """ Devuelve los topics añadidos por un usuario al grupo por su id de grupo """
 class TopicsAddedByGroupView(generics.ListAPIView):
@@ -99,11 +102,19 @@ class AddTopicView(APIView):
         User = apps.get_model('custom_auth', 'User')
         Group = apps.get_model('custom_auth', 'Group')
 
+        # Verificar si el usuario ya ha añadido un tópico en este grupo
+        user_topic_count = TopicAddedUser.objects.filter(group_id=group_id, user_id=user_id).count()
+        if user_topic_count > 0:
+            return Response({"error": "You can only add one topic per group"}, status=status.HTTP_403_FORBIDDEN)
+
        # Verificar si el tópico ya existe en RecommendedTopic para el grupo específico
         existing_recommended_topic = RecommendedTopic.objects.filter(topic_name=topic_name, group_id=group_id).first()
+        logger.info(f"VERIFICAR SI EL TOPICO EXISTE EN EL GRUPOOOOOOOoooooOOO: {existing_recommended_topic}")
+        
         if existing_recommended_topic:
             # Verificar si ya se ha añadido este tópico en TopicAddedUser para el grupo específico
             existing_topic_added_user = TopicAddedUser.objects.filter(topic=existing_recommended_topic, group_id=group_id).first()
+            logger.info(f"VERIFICAR SI EL TOPICO EXISTE EN EL GRUPOOOOOOOoooooOOO22: {existing_topic_added_user}")
             if existing_topic_added_user:
                 return Response({"error": "Topic already exists in this group"}, status=status.HTTP_400_BAD_REQUEST)
             else:
