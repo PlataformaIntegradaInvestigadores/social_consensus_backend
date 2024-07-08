@@ -1,3 +1,4 @@
+from venv import logger
 from rest_framework import generics, permissions
 from django.apps import apps 
 from apps.concensus.domain.entities.notification import NotificationPhaseOne
@@ -6,6 +7,7 @@ from rest_framework import status
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from rest_framework.response import Response
+from django.utils import timezone
 
 
 class NotificationListView(generics.ListAPIView):
@@ -17,6 +19,8 @@ class NotificationListView(generics.ListAPIView):
         return NotificationPhaseOne.objects.filter(group_id=group_id).order_by('created_at')
 
 
+from django.utils import timezone
+
 class TopicVisitedView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -26,6 +30,8 @@ class TopicVisitedView(generics.CreateAPIView):
         topic_id = data.get('topic_id')
         user_id = data.get('user_id')
 
+        logger.info(f"Received data: {data}")
+
         if not topic_id or not user_id:
             return Response({"error": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -33,6 +39,7 @@ class TopicVisitedView(generics.CreateAPIView):
         TopicAddedUser = apps.get_model('concensus', 'TopicAddedUser')
         User = apps.get_model('custom_auth', 'User')
         Group = apps.get_model('custom_auth', 'Group')
+        NotificationPhaseOne = apps.get_model('concensus', 'NotificationPhaseOne')
 
         # Verificar que el usuario y el grupo existen
         try:
@@ -55,17 +62,33 @@ class TopicVisitedView(generics.CreateAPIView):
                 return Response({"error": "Topic does not exist in this group"}, status=status.HTTP_404_NOT_FOUND)
 
         # Crear mensaje de notificación
-        message = f'{user.first_name} {user.last_name} 👀 visited <i>{topic.topic_name}<i>'
+        message = f'{user.first_name} {user.last_name} 👀 visited <i>{topic.topic_name}</i>'
 
-        # Almacenar la notificación en la base de datos
-        notification = NotificationPhaseOne.objects.create(
-            user=user,
-            group=group,
-            notification_type='topic_visited',
-            message=message
-        )
+        # Verificar si ya existe una notificación similar
+        existing_notification = NotificationPhaseOne.objects.filter(
+            user=user, group=group, notification_type='topic_visited', message=message
+        ).first()
 
-        # Enviar notificación por WebSocket
+        logger.info(f"Existing notification: {existing_notification}")
+
+        if existing_notification:
+            # Si la notificación ya existe, actualizar la fecha
+            existing_notification.created_at = timezone.now()
+            existing_notification.save()
+            notification = existing_notification
+        else:
+            # Si la notificación no existe, crear una nueva
+            notification = NotificationPhaseOne.objects.create(
+                user=user,
+                group=group,
+                notification_type='topic_visited',
+                message=message
+            )
+
+             # Construir la URL completa de la imagen de perfil
+        profile_picture_url = user.profile_picture.url if user.profile_picture else None
+
+        # Enviar notificación por WebSocket solo si es nueva
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f'group_{group_id}',
@@ -79,12 +102,15 @@ class TopicVisitedView(generics.CreateAPIView):
                     'notification_message': message,
                     'added_at': notification.created_at.isoformat(),
                     'topic_id': topic_id,
+                    'profile_picture_url': profile_picture_url,  # Añadir la URL de la imagen de perfil
+
                 }
             }
         )
 
         serializer = NotificationSerializer(notification)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 class CombinedSearchView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -102,6 +128,7 @@ class CombinedSearchView(generics.CreateAPIView):
         TopicAddedUser = apps.get_model('concensus', 'TopicAddedUser')
         User = apps.get_model('custom_auth', 'User')
         Group = apps.get_model('custom_auth', 'Group')
+        NotificationPhaseOne = apps.get_model('concensus', 'NotificationPhaseOne')
 
         try:
             user = User.objects.get(id=user_id)
@@ -125,20 +152,34 @@ class CombinedSearchView(generics.CreateAPIView):
 
         combined_topics = ', '.join(topic_names)
         message = f'{user.first_name} {user.last_name} 🔍 made a combined search for Topics: {combined_topics}'
-        
-        notification = NotificationPhaseOne.objects.create(
-            user=user,
-            group=group,
-            notification_type='combined_search',
-            message=message
-        )
 
+        # Verificar si ya existe una notificación similar
+        existing_notification = NotificationPhaseOne.objects.filter(
+            user=user, group=group, notification_type='combined_search', message=message
+        ).first()
+
+        if existing_notification:
+            # Si la notificación ya existe, actualizar la fecha
+            existing_notification.created_at = timezone.now()
+            existing_notification.save()
+            notification = existing_notification
+        else:
+            # Si la notificación no existe, crear una nueva
+            notification = NotificationPhaseOne.objects.create(
+                user=user,
+                group=group,
+                notification_type='combined_search',
+                message=message
+            )
+
+        # Enviar notificación por WebSocket solo si es nueva
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f'group_{group_id}',
             {
                 'type': 'group_message',
                 'message': {
+                    'id': notification.id,
                     'type': 'combined_search',
                     'topics': topics,
                     'user_id': user_id,
@@ -150,8 +191,7 @@ class CombinedSearchView(generics.CreateAPIView):
         )
 
         serializer = NotificationSerializer(notification)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
+        return Response(serializer.data, status=status.HTTP_201_CREATED)    
 
 class PhaseOneCompletedView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -190,6 +230,7 @@ class PhaseOneCompletedView(generics.CreateAPIView):
             {
                 'type': 'group_message',
                 'message': {
+                    'id': notification.id,
                     'type': 'consensus_completed',
                     'user_id': user_id,
                     'group_id': group_id,

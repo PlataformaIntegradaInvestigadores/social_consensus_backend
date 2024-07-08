@@ -1,3 +1,4 @@
+from django.utils import timezone
 from venv import logger
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -47,6 +48,7 @@ class UserExpertiseView(generics.CreateAPIView):
         TopicAddedUser = apps.get_model('concensus', 'TopicAddedUser')
         User = apps.get_model('custom_auth', 'User')
         Group = apps.get_model('custom_auth', 'Group')
+        NotificationPhaseOne = apps.get_model('concensus', 'NotificationPhaseOne')
 
         try:
             user = User.objects.get(id=user_id)
@@ -92,20 +94,24 @@ class UserExpertiseView(generics.CreateAPIView):
             #expertise_status = 'expert'
             message = f'{user.first_name} {user.last_name} 🧠 is an expert in <i>{recommendedTopic.topic_name}</i>'
 
-        # Crear la notificación
-        try:
-            NotificationPhaseOne.objects.create(
+         # Verificar si ya existe una notificación similar
+        existing_notification = NotificationPhaseOne.objects.filter(
+            user=user, group=group, notification_type='user_expertise', message=message
+        ).first()
+
+        
+        if existing_notification:
+            existing_notification.created_at = timezone.now()
+            existing_notification.save()
+            notification = existing_notification
+        else:
+            notification = NotificationPhaseOne.objects.create(
                 user=user,
                 group=group,
                 notification_type='user_expertise',
                 message=message
             )
-            logger.info("Notification created successfully")
-        except Exception as e:
-            logger.error(f"Error creating notification: {str(e)}")
-            return Response({"error": "Error creating notification"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        # Enviar el mensaje a través de los canales
+        
         try:
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
@@ -113,6 +119,7 @@ class UserExpertiseView(generics.CreateAPIView):
                 {
                     'type': 'group_message',
                     'message': {
+                        'id': notification.id,
                         'type': 'user_expertise',
                         'user_id': user_id,
                         'group_id': group_id,

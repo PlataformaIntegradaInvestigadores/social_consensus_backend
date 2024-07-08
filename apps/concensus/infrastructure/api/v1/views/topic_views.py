@@ -41,7 +41,8 @@ class RandomRecommendedTopicView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = RecommendedTopic.objects.filter(group__isnull=True)
-        return random.sample(list(queryset), min(len(queryset), 5))
+        sampled_queryset = random.sample(list(queryset), min(len(queryset), 5))
+        return sorted(sampled_queryset, key=lambda topic: topic.topic_name)
 
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
