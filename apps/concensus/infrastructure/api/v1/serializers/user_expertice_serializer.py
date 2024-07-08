@@ -6,3 +6,6 @@ class UserExpertiseSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserExpertise
         fields = '__all__'
+
+
+#select * from "concensus_userexpertise ";

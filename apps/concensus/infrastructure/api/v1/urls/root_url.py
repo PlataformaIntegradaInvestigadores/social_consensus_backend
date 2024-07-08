@@ -1,6 +1,7 @@
 from django.http import JsonResponse
 from django.urls import include, path
 
+from apps.concensus.infrastructure.api.v1.views.final_topic_views import SaveFinalTopicOrderView
 from apps.concensus.infrastructure.api.v1.views.notification_views import CombinedSearchView, NotificationListView, NotificationPhaseTwoListView, PhaseOneCompletedView, TopicReorderView, TopicTagView, TopicVisitedView
 from apps.concensus.infrastructure.api.v1.views.topic_views import AddTopicView, GroupTopicsView, RandomRecommendedTopicView, RecommendedTopicsByGroupView, TopicsAddedByGroupView
 from apps.concensus.infrastructure.api.v1.views.user_expertice_views import UserExpertiseView
@@ -24,4 +25,6 @@ urlpatterns=[
 
     path('groups/<str:group_id>/topic-reorder/', TopicReorderView.as_view(), name='topic-reorder'),
     path('groups/<str:group_id>/tag-topic/', TopicTagView.as_view(), name='tag-topic'),
+
+    path('groups/<str:group_id>/save-final-topic-order/', SaveFinalTopicOrderView.as_view(), name='save-final-topic-order'),
 ]

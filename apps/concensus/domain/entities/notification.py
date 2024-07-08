@@ -24,7 +24,9 @@ class NotificationPhaseOne(models.Model):
 
 class NotificationPhaseTwo(models.Model):
     NOTIFICATION_TYPES = (
-        ('topic_reorder', 'Topic Reorder'), # Modified line
+        ('topic_reorder', 'Topic Reorder'),
+        ('topic_tag', 'Topic Tag'),
+        ('consensus_finalized', 'Consensus Finalized'),
     )  
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     group = models.ForeignKey(Group, on_delete=models.CASCADE)
@@ -50,5 +52,5 @@ id	|user_id |group_id	|notification_type	|message	                     |created_
 #select * from "concensus_notificationphaseone";
 #select * from "concensus_notificationphasetwo";
 
-#TRUNCATE TABLE "concensus_notificationphaseone" CASCADE;
+#TRUNCATE TABLE "concensus_notificationphasetwo" CASCADE;
 
