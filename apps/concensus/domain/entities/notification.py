@@ -20,8 +20,21 @@ class NotificationPhaseOne(models.Model):
     
     def __str__(self):
         return f'{self.user.username} - {self.notification_type}'
-    
 
+
+class NotificationPhaseTwo(models.Model):
+    NOTIFICATION_TYPES = (
+        ('topic_reorder', 'Topic Reorder'), # Modified line
+    )  
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE)
+    notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f'{self.user.username} - {self.notification_type}'
+    
 """ 
 
 TABLA NOTIFICATION_PHASE_ONE
@@ -35,6 +48,7 @@ id	|user_id |group_id	|notification_type	|message	                     |created_
 
 #concensus_notificationphaseone 
 #select * from "concensus_notificationphaseone";
+#select * from "concensus_notificationphasetwo";
 
 #TRUNCATE TABLE "concensus_notificationphaseone" CASCADE;
 

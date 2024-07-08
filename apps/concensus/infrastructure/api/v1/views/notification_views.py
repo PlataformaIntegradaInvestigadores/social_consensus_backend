@@ -1,8 +1,8 @@
 from venv import logger
 from rest_framework import generics, permissions
 from django.apps import apps 
-from apps.concensus.domain.entities.notification import NotificationPhaseOne
-from apps.concensus.infrastructure.api.v1.serializers.notification_serializer import NotificationSerializer
+from apps.concensus.domain.entities.notification import NotificationPhaseOne, NotificationPhaseTwo
+from apps.concensus.infrastructure.api.v1.serializers.notification_serializer import NotificationPhaseTwoSerializer, NotificationSerializer
 from rest_framework import status
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
@@ -17,9 +17,15 @@ class NotificationListView(generics.ListAPIView):
     def get_queryset(self):
         group_id = self.kwargs['group_id']
         return NotificationPhaseOne.objects.filter(group_id=group_id).order_by('created_at')
+    
 
+class NotificationPhaseTwoListView(generics.ListAPIView):
+    serializer_class = NotificationPhaseTwoSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-from django.utils import timezone
+    def get_queryset(self):
+        group_id = self.kwargs['group_id']
+        return NotificationPhaseTwo.objects.filter(group_id=group_id).order_by('created_at')
 
 class TopicVisitedView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -241,4 +247,127 @@ class PhaseOneCompletedView(generics.CreateAPIView):
         )
 
         serializer = NotificationSerializer(notification)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+
+class TopicReorderView(generics.CreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, group_id):
+        data = request.data
+        topic_id = data.get('topic_id')
+        user_id = data.get('user_id')
+        original_position = data.get('original_position')
+        new_position = data.get('new_position')
+
+        if not topic_id or not user_id or original_position is None or new_position is None:
+            return Response({"error": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
+
+        Topic = apps.get_model('concensus', 'RecommendedTopic')
+        Group = apps.get_model('custom_auth', 'Group')
+        User = apps.get_model('custom_auth', 'User')
+
+        try:
+            topic = Topic.objects.get(id=topic_id, group_id=group_id)
+            user = User.objects.get(id=user_id)
+            group = Group.objects.get(id=group_id)
+        except Topic.DoesNotExist:
+            return Response({"error": "Topic does not exist in this group"}, status=status.HTTP_404_NOT_FOUND)
+        except User.DoesNotExist:
+            return Response({"error": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
+        except Group.DoesNotExist:
+            return Response({"error": "Group does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Crear mensaje de notificación personalizado
+        if new_position < original_position:
+            message = f'{user.first_name} {user.last_name} moved 🚀 up topic "{topic.topic_name}" from {original_position} to {new_position}'
+        else:
+            message = f'{user.first_name} {user.last_name} moved ⬇️ down topic "{topic.topic_name}" from {original_position} to {new_position}'
+
+        # Almacenar la notificación en la base de datos
+        notification = NotificationPhaseTwo.objects.create(
+            user=user,
+            group=group,
+            notification_type='topic_reorder',
+            message=message
+        )
+
+        # Enviar notificación por WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'phase2_group_{group_id}',  # Asegúrate de que la ruta sea correcta
+            {
+                'type': 'group_message',
+                'message': {
+                    'type': 'topic_reorder',
+                    'topic_id': topic_id,
+                    'user_id': user_id,
+                    'group_id': group_id,
+                    'added_at': notification.created_at.isoformat(),
+                    'notification_message': message
+                }
+            }
+        )
+
+        serializer = NotificationPhaseTwoSerializer(notification)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class TopicTagView(generics.CreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, group_id):
+        data = request.data
+        topic_id = data.get('topic_id')
+        user_id = data.get('user_id')
+        tag = data.get('tag')
+
+        if not topic_id or not user_id or not tag:
+            return Response({"error": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
+
+        Topic = apps.get_model('concensus', 'RecommendedTopic')
+        Group = apps.get_model('custom_auth', 'Group')
+        User = apps.get_model('custom_auth', 'User')
+
+        try:
+            topic = Topic.objects.get(id=topic_id, group_id=group_id)
+            user = User.objects.get(id=user_id)
+            group = Group.objects.get(id=group_id)
+        except Topic.DoesNotExist:
+            return Response({"error": "Topic does not exist in this group"}, status=status.HTTP_404_NOT_FOUND)
+        except User.DoesNotExist:
+            return Response({"error": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
+        except Group.DoesNotExist:
+            return Response({"error": "Group does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Crear mensaje de notificación personalizado
+        message = f'{user.first_name} {user.last_name} tagged topic "{topic.topic_name}" as {tag}'
+
+        # Almacenar la notificación en la base de datos
+        NotificationPhaseTwo = apps.get_model('concensus', 'NotificationPhaseTwo')
+        notification = NotificationPhaseTwo.objects.create(
+            user=user,
+            group=group,
+            notification_type='topic_tag',
+            message=message
+        )
+
+        # Enviar notificación por WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'phase2_group_{group_id}',  # Asegúrate de que la ruta sea correcta
+            {
+                'type': 'group_message',
+                'message': {
+                    'type': 'topic_tag',
+                    'topic_id': topic_id,
+                    'user_id': user_id,
+                    'group_id': group_id,
+                    'added_at': notification.created_at.isoformat(),
+                    'notification_message': message
+                }
+            }
+        )
+
+        serializer = NotificationPhaseTwoSerializer(notification)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
