@@ -2,6 +2,7 @@ from venv import logger
 from rest_framework import generics, permissions
 from django.apps import apps 
 from apps.concensus.domain.entities.notification import NotificationPhaseOne, NotificationPhaseTwo
+from apps.concensus.domain.entities.user_phase import UserPhase
 from apps.concensus.infrastructure.api.v1.serializers.notification_serializer import NotificationPhaseTwoSerializer, NotificationSerializer
 from rest_framework import status
 from channels.layers import get_channel_layer
@@ -204,11 +205,7 @@ class PhaseOneCompletedView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         group_id = self.kwargs['group_id']
-        data = request.data
-        user_id = data.get('user_id')
-
-        if not user_id:
-            return Response({"error": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
+        user_id = request.user.id
 
         User = apps.get_model('custom_auth', 'User')
         Group = apps.get_model('custom_auth', 'Group')
@@ -222,7 +219,6 @@ class PhaseOneCompletedView(generics.CreateAPIView):
             return Response({"error": "Group does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
         message = f'{user.first_name} {user.last_name} ✔️ has completed the phase one'
-
         notification = NotificationPhaseOne.objects.create(
             user=user,
             group=group,
@@ -230,6 +226,10 @@ class PhaseOneCompletedView(generics.CreateAPIView):
             message=message
         )
 
+        # Update or create UserPhase
+        UserPhase.objects.update_or_create(user=user, group=group, defaults={'phase': 1, 'completed_at': timezone.now()})
+
+        # Emit WebSocket message
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f'group_{group_id}',

@@ -6,6 +6,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from apps.concensus.domain.entities.final_topic_order import FinalTopicOrder
+from apps.concensus.domain.entities.user_phase import UserPhase
 from apps.concensus.infrastructure.api.v1.serializers.final_topic_serializer import FinalTopicOrderSerializer
 from django.utils import timezone
 
@@ -20,7 +21,6 @@ class SaveFinalTopicOrderView(generics.CreateAPIView):
     def post(self, request, group_id):
         data = request.data
         user_id = request.user.id
-
         final_topic_orders = data.get('final_topic_orders', [])
 
         if not final_topic_orders:
@@ -39,11 +39,20 @@ class SaveFinalTopicOrderView(generics.CreateAPIView):
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        # Update or create UserPhase
+        UserPhase.objects.update_or_create(user_id=user_id, group_id=group_id, defaults={'phase': 2, 'completed_at': timezone.now()})
+
+        # Check if all users in the group have completed phase 2
+        all_completed = UserPhase.objects.filter(group_id=group_id, phase__lt=2).count() == 0
+
+        if all_completed:
+            self.trigger_phase_three_calculations(group_id)
+
         # Send WebSocket notification
         group = apps.get_model('custom_auth', 'Group').objects.get(id=group_id)
         message = f'{request.user.first_name} {request.user.last_name} has finalized the consensus phase 2.'
         user = User.objects.get(id=user_id)
-        
+
         NotificationPhaseTwo = apps.get_model('concensus', 'NotificationPhaseTwo')
         notification = NotificationPhaseTwo.objects.create(
             user=user,
@@ -51,7 +60,7 @@ class SaveFinalTopicOrderView(generics.CreateAPIView):
             notification_type='consensus_finalized',
             message=message
         )
-        
+
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f'phase2_group_{group_id}',
@@ -69,3 +78,20 @@ class SaveFinalTopicOrderView(generics.CreateAPIView):
 
         notification_serializer = NotificationPhaseTwoSerializer(notification)
         return Response(notification_serializer.data, status=status.HTTP_201_CREATED)
+
+    def trigger_phase_three_calculations(self, group_id):
+        # Aquí va el código para realizar los cálculos necesarios
+        print(f'Triggering phase three calculations for group {group_id}')
+
+        # Enviar notificación a través de WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'phase2_group_{group_id}',
+            {
+                'type': 'group_message',
+                'message': {
+                    'type': 'phase_two_completed_all',
+                    'group_id': group_id
+                }
+            }
+        )
