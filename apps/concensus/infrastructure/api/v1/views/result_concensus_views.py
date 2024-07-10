@@ -59,8 +59,7 @@ class ExecuteConsensusCalculationsView(generics.GenericAPIView):
                 topic_name = pos.idTopic.topic_name
                 positions_data[topic_name][user.username] = pos.posFinal
                 if pos.label:
-                    labels_data[topic_name].append(f"{user.username} calificó como {pos.label}")
-
+                    labels_data[topic_name].append(f"{user.first_name} {user.last_name} rated it as {pos.label}")
             for exp in user_expertise:
                 topic_name = exp.topic.topic_name
                 expertise_data[topic_name][user.username] = exp.expertise_level

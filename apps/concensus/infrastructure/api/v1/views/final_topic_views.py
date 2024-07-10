@@ -50,7 +50,7 @@ class SaveFinalTopicOrderView(generics.CreateAPIView):
 
         # Send WebSocket notification
         group = apps.get_model('custom_auth', 'Group').objects.get(id=group_id)
-        message = f'{request.user.first_name} {request.user.last_name} has finalized the consensus phase 2.'
+        message = f'{request.user.first_name} {request.user.last_name} ✔️ has completed the phase Two'
         user = User.objects.get(id=user_id)
 
         NotificationPhaseTwo = apps.get_model('concensus', 'NotificationPhaseTwo')

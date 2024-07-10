@@ -218,7 +218,7 @@ class PhaseOneCompletedView(generics.CreateAPIView):
         except Group.DoesNotExist:
             return Response({"error": "Group does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
-        message = f'{user.first_name} {user.last_name} ✔️ has completed the phase one'
+        message = f'{user.first_name} {user.last_name} ✔️ has completed the phase One'
         notification = NotificationPhaseOne.objects.create(
             user=user,
             group=group,
@@ -282,7 +282,7 @@ class TopicReorderView(generics.CreateAPIView):
         if new_position < original_position:
             message = f'{user.first_name} {user.last_name} moved 🚀 up topic "{topic.topic_name}" from {original_position} to {new_position}'
         else:
-            message = f'{user.first_name} {user.last_name} moved ⬇️ down topic "{topic.topic_name}" from {original_position} to {new_position}'
+            message = f'{user.first_name} {user.last_name} moved 👇 down topic "{topic.topic_name}" from {original_position} to {new_position}'
 
         # Almacenar la notificación en la base de datos
         notification = NotificationPhaseTwo.objects.create(
@@ -340,8 +340,16 @@ class TopicTagView(generics.CreateAPIView):
         except Group.DoesNotExist:
             return Response({"error": "Group does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Crear mensaje de notificación personalizado
-        message = f'{user.first_name} {user.last_name} tagged topic "{topic.topic_name}" as {tag}'
+        # Crear mensaje de notificación personalizado con emojis
+        emoji_dict = {
+            "Novel": "🌟",
+            "Attractive": "💖",
+            "Trend": "🔥",
+            "Obsolete": "🗑️",
+            "Unfamiliar": "❓"
+        }
+
+        message = f'{user.first_name} {user.last_name} tagged topic "{topic.topic_name}" as "{tag}" {emoji_dict.get(tag, "")}'
 
         # Almacenar la notificación en la base de datos
         NotificationPhaseTwo = apps.get_model('concensus', 'NotificationPhaseTwo')

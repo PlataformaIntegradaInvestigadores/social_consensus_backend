@@ -7,5 +7,6 @@ from apps.concensus.domain.entities.notification import NotificationPhaseTwo
 from apps.concensus.domain.entities.final_topic_order import FinalTopicOrder
 from apps.concensus.domain.entities.user_phase import UserPhase
 from apps.concensus.domain.entities.result_concensus import ConsensusResult
+from apps.concensus.domain.entities.user_satisfaction import UserSatisfaction
 
 # Create your models here.
