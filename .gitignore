@@ -14,5 +14,5 @@ migrations
 */migrations/
 apps/*/migrations/*
 apps/*/migrations/
-
+!apps/media/profile_pictures/default_profile_picture.png
 
