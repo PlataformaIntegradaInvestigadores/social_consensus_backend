@@ -98,6 +98,13 @@ class AddTopicView(APIView):
         if not topic_name or not user_id:
             return Response({"error": "Invalid data"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Verificar la fase de todos los usuarios en el grupo
+        UserPhase = apps.get_model('concensus', 'UserPhase')
+        users_in_phase_two_or_higher = UserPhase.objects.filter(group_id=group_id, phase__gte=1).exists()
+        
+        if users_in_phase_two_or_higher:
+            return Response({"error": "A user in this group is already in phase 2, adding new topics is not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        
         RecommendedTopic = apps.get_model('concensus', 'RecommendedTopic')
         TopicAddedUser = apps.get_model('concensus', 'TopicAddedUser')
         User = apps.get_model('custom_auth', 'User')
@@ -110,12 +117,10 @@ class AddTopicView(APIView):
 
        # Verificar si el tópico ya existe en RecommendedTopic para el grupo específico
         existing_recommended_topic = RecommendedTopic.objects.filter(topic_name=topic_name, group_id=group_id).first()
-        logger.info(f"VERIFICAR SI EL TOPICO EXISTE EN EL GRUPOOOOOOOoooooOOO: {existing_recommended_topic}")
         
         if existing_recommended_topic:
             # Verificar si ya se ha añadido este tópico en TopicAddedUser para el grupo específico
             existing_topic_added_user = TopicAddedUser.objects.filter(topic=existing_recommended_topic, group_id=group_id).first()
-            logger.info(f"VERIFICAR SI EL TOPICO EXISTE EN EL GRUPOOOOOOOoooooOOO22: {existing_topic_added_user}")
             if existing_topic_added_user:
                 return Response({"error": "Topic already exists in this group"}, status=status.HTTP_400_BAD_REQUEST)
             else:
@@ -131,7 +136,7 @@ class AddTopicView(APIView):
 
         serializer = TopicAddedUserSerializer(topic_added)
 
-         # Crear notificación
+        # Crear notificación
         user = User.objects.get(id=user_id)
         group = Group.objects.get(id=group_id)
         message = f'{user.first_name} {user.last_name} 📥 added topic <i>{topic_name}</i>'

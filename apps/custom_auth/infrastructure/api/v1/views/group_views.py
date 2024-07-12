@@ -27,7 +27,7 @@ class GroupListCreateView(generics.ListCreateAPIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-""" Para listar los grupos del mas actual al mas antiguo de un usuario autenticado """
+""" Para listar los grupos de un usuario autenticado """
 class UserGroupsListView(generics.ListAPIView):
     serializer_class = UserGroupSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -35,7 +35,7 @@ class UserGroupsListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         # Filtrar los grupos por el usuario autenticado y ordenar por 'id' en orden descendente
-        return Group.objects.filter(users=user).order_by('-id')
+        return Group.objects.filter(users=user)
 
 """ Para borrar un grupo"""
 class GroupDeleteView(generics.DestroyAPIView):
