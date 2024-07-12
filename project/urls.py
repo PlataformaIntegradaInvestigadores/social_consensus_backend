@@ -42,9 +42,8 @@ urlpatterns = [
     path('swagger/', schema_view.with_ui('swagger',
          cache_timeout=0), name='schema-swagger-ui'),
     path('api/v1/', include('apps.concensus.infrastructure.api.v1.urls.root_url')),
-    path('api/', include('apps.custom_auth.urls')),
+    path('api/', include('apps.custom_auth.infrastructure.api.v1.urls.root_url')),
 ]
-
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL,

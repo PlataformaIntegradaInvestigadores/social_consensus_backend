@@ -2,13 +2,14 @@ version: '3.8'
 services:
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
+    command: daphne -b 0.0.0.0 -p 8000 project.asgi:application
     volumes:
       - .:/app
     ports:
       - "8000:8000"
     depends_on:
       - db
+      - redis
     environment:
       - DJANGO_SETTINGS_MODULE=project.settings
   db:
@@ -19,6 +20,10 @@ services:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
 
 volumes:
   postgres_data:

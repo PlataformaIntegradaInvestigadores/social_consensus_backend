@@ -5,25 +5,32 @@ from datetime import timedelta
 
 load_dotenv()  # Carga las variables de entorno del archivo .env
 
+# Configuración de Redis
+REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
+REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv(
-    'SECRET_KEY', 'django-insecure-2&dn&!a*l1d-p!u3xw8s)f9xbsa%i4uh2pf*qw@djt0va@pf2e')
+    'SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Convert string "True" from .env to boolean True
 DEBUG = os.getenv('DEBUG') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 # Application definition
 
+
 INSTALLED_APPS = [
+    'daphne',
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -32,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'drf_yasg',
     'rest_framework',
+    'channels',
     'apps',
     'apps.concensus',
     'apps.custom_auth',
@@ -39,6 +47,7 @@ INSTALLED_APPS = [
 # ada
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -49,6 +58,10 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'project.urls'
+
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:4200",
+# ]
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:4200',
@@ -133,6 +146,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+
 
 
 AUTH_USER_MODEL = 'custom_auth.User'
@@ -143,7 +159,7 @@ AUTH_USER_MODEL = 'custom_auth.User'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=1440),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -156,6 +172,71 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
+# URL base para servir archivos media
+MEDIA_URL = '/media/'
 
-MEDIA_URL = 'apps/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Ruta del sistema de archivos donde se almacenarán los archivos media
+MEDIA_ROOT = os.path.join(BASE_DIR, 'apps/media')
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
+
+ASGI_APPLICATION = 'project.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [("redis", 6379)],
+        },
+    },
+}
+
+""" LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'ERROR',  # Cambiar de DEBUG a ERROR para reducir la verbosidad
+            'propagate': False,
+        },
+    },
+} """
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
+
