@@ -1,18 +1,25 @@
+# Entornos virtuales
 .env
-venv
-__pycache__
-.idea
-.vscode
-env
-myenv
-post_files
-profile_pictures
-static
-media
-migrations
-*/migrations/*
-*/migrations/
-apps/*/migrations/*
-apps/*/migrations/
-!apps/media/profile_pictures/default_profile_picture.png
+venv/
+env/
+myenv/
 
+# Archivos de caché y configuraciones de IDE
+__pycache__/
+.idea/
+.vscode/
+
+# Archivos y directorios específicos del proyecto
+post_files/
+static/
+migrations/
+
+# Ignorar directorios de migraciones dentro del directorio apps
+apps/*/migrations/
+apps/*/migrations/*
+
+# Ignorar todo el contenido del directorio profile_pictures
+apps/media/profile_pictures/*
+
+# Pero no ignorar este archivo específico
+!apps/media/profile_pictures/default_profile_picture.png
