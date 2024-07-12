@@ -8,3 +8,11 @@ myenv
 post_files
 profile_pictures
 static
+media
+migrations
+*/migrations/*
+*/migrations/
+apps/*/migrations/*
+apps/*/migrations/
+
+
