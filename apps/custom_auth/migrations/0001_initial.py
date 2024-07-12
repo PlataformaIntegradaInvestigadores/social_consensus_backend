@@ -41,7 +41,7 @@ class Migration(migrations.Migration):
                 ('user_permissions', models.ManyToManyField(blank=True, help_text='Specific permissions for this user.', related_name='user_set', related_query_name='user', to='auth.permission', verbose_name='user permissions')),
             ],
             options={
-                'db_table': 'USER',
+                'db_table': 'users',
             },
         ),
         migrations.CreateModel(
@@ -53,7 +53,7 @@ class Migration(migrations.Migration):
                 ('admin', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='administered_groups', to=settings.AUTH_USER_MODEL)),
             ],
             options={
-                'db_table': 'GROUP',
+                'db_table': 'groups',
             },
         ),
         migrations.CreateModel(
@@ -64,7 +64,7 @@ class Migration(migrations.Migration):
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
             ],
             options={
-                'db_table': 'GROUP_USERS',
+                'db_table': 'group_users',
             },
         ),
         migrations.AddField(
@@ -81,7 +81,7 @@ class Migration(migrations.Migration):
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='posts', to=settings.AUTH_USER_MODEL)),
             ],
             options={
-                'db_table': 'POST',
+                'db_table': 'posts',
             },
         ),
         migrations.CreateModel(
@@ -92,7 +92,7 @@ class Migration(migrations.Migration):
                 ('post', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='files', to='custom_auth.post')),
             ],
             options={
-                'db_table': 'POST_FILES',
+                'db_table': 'post_files',
             },
         ),
         migrations.CreateModel(
@@ -105,7 +105,7 @@ class Migration(migrations.Migration):
                 ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='profile_information', to=settings.AUTH_USER_MODEL)),
             ],
             options={
-                'db_table': 'INFORMATION',
+                'db_table': 'profiles_information',
             },
         ),
         migrations.AddConstraint(

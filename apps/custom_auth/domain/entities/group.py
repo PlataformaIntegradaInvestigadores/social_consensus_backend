@@ -18,11 +18,11 @@ class Group(models.Model):
         return self.title
 
     class Meta:
-        db_table = 'GROUP'
+        db_table = 'groups'
 
 class GroupUser(models.Model):
     group = models.ForeignKey(Group, on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     class Meta:
-        db_table = 'GROUP_USERS'
+        db_table = 'group_users'

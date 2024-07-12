@@ -11,4 +11,4 @@ class ProfileInformation(models.Model):
         return f"{self.user.username}'s Profile Information"
 
     class Meta:
-        db_table = 'INFORMATION'
+        db_table = 'profiles_information'
