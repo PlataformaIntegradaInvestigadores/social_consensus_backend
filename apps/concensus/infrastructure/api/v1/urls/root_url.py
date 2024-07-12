@@ -6,7 +6,8 @@ from apps.concensus.infrastructure.api.v1.views.notification_views import Combin
 from apps.concensus.infrastructure.api.v1.views.result_concensus_views import ExecuteConsensusCalculationsView
 from apps.concensus.infrastructure.api.v1.views.topic_views import AddTopicView, GroupTopicsView, RandomRecommendedTopicView, RecommendedTopicsByGroupView, TopicsAddedByGroupView
 from apps.concensus.infrastructure.api.v1.views.user_expertice_views import UserExpertiseView
-from apps.concensus.infrastructure.api.v1.views.user_satisfaction_views import LoadUserSatisfactionNotificationsView, UserSatisfactionView
+from apps.concensus.infrastructure.api.v1.views.user_phase_views import UserCurrentPhaseView
+from apps.concensus.infrastructure.api.v1.views.user_satisfaction_views import LoadSatisfactionCountsView, LoadUserSatisfactionNotificationsView, UserSatisfactionView
 
 def test_view(request):
     return JsonResponse({"message": "Test URL of concensus works!"})
@@ -34,4 +35,8 @@ urlpatterns=[
     path('groups/<str:group_id>/execute_consensus_calculations/', ExecuteConsensusCalculationsView.as_view(), name='execute_consensus_calculations'),
     path('groups/<str:group_id>/user_satisfaction/', UserSatisfactionView.as_view(), name='user_satisfaction'),
     path('groups/<str:group_id>/satisfaction/notifications/', LoadUserSatisfactionNotificationsView.as_view(), name='load-user-satisfaction-notifications'),
+
+    path('groups/<str:group_id>/satisfaction-counts/', LoadSatisfactionCountsView.as_view(), name='satisfaction-counts'),
+
+    path('groups/<str:group_id>/current-phase/', UserCurrentPhaseView.as_view(), name='current-phase'),
 ]

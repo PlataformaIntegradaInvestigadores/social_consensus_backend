@@ -1,4 +1,3 @@
-# views.py
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from django.apps import apps
@@ -42,11 +41,6 @@ class SaveFinalTopicOrderView(generics.CreateAPIView):
         # Update or create UserPhase
         UserPhase.objects.update_or_create(user_id=user_id, group_id=group_id, defaults={'phase': 2, 'completed_at': timezone.now()})
 
-        # Check if all users in the group have completed phase 2
-        all_completed = UserPhase.objects.filter(group_id=group_id, phase__lt=2).count() == 0
-
-        if all_completed:
-            self.trigger_phase_three_calculations(group_id)
 
         # Send WebSocket notification
         group = apps.get_model('custom_auth', 'Group').objects.get(id=group_id)
@@ -78,20 +72,3 @@ class SaveFinalTopicOrderView(generics.CreateAPIView):
 
         notification_serializer = NotificationPhaseTwoSerializer(notification)
         return Response(notification_serializer.data, status=status.HTTP_201_CREATED)
-
-    def trigger_phase_three_calculations(self, group_id):
-        # Aquí va el código para realizar los cálculos necesarios
-        print(f'Triggering phase three calculations for group {group_id}')
-
-        # Enviar notificación a través de WebSocket
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f'phase2_group_{group_id}',
-            {
-                'type': 'group_message',
-                'message': {
-                    'type': 'phase_two_completed_all',
-                    'group_id': group_id
-                }
-            }
-        )

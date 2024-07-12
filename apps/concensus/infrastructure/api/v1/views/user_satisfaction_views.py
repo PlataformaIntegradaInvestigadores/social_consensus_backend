@@ -1,3 +1,4 @@
+from django.db import models
 import logging
 from django.apps import apps
 from rest_framework import generics, status, permissions
@@ -35,7 +36,7 @@ class UserSatisfactionView(generics.CreateAPIView):
         except User.DoesNotExist:
             return Response({"error": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
-        notification_message = f'{user.first_name} {user.last_name}, is {satisfaction_level}'
+        notification_message = f'{user.first_name} {user.last_name} is {satisfaction_level}'
 
         # Create or update the satisfaction record
         satisfaction, created = UserSatisfaction.objects.update_or_create(
@@ -46,6 +47,11 @@ class UserSatisfactionView(generics.CreateAPIView):
             message=notification_message
         )
 
+        # Calculate the new counts for each satisfaction level
+        satisfaction_counts = UserSatisfaction.objects.filter(group=group).values('satisfaction_level').annotate(count=models.Count('satisfaction_level'))
+
+        counts = {item['satisfaction_level']: item['count'] for item in satisfaction_counts}
+
         # Prepare WebSocket message
         message = {
             'type': 'user_satisfaction',
@@ -54,6 +60,7 @@ class UserSatisfactionView(generics.CreateAPIView):
             'satisfaction_level': satisfaction_level,
             'notification_message': notification_message,
             'added_at': timezone.now().isoformat(),
+            'counts': counts
         }
 
         # Send WebSocket notification
@@ -76,3 +83,20 @@ class LoadUserSatisfactionNotificationsView(generics.ListAPIView):
     def get_queryset(self):
         group_id = self.kwargs['group_id']
         return UserSatisfaction.objects.filter(group_id=group_id).order_by('-created_at')
+
+class LoadSatisfactionCountsView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, group_id):
+        Group = apps.get_model('custom_auth', 'Group')
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({"error": "Group does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        satisfaction_counts = UserSatisfaction.objects.filter(group=group).values('satisfaction_level').annotate(count=models.Count('satisfaction_level'))
+
+        counts = {item['satisfaction_level']: item['count'] for item in satisfaction_counts}
+
+        return Response({"counts": counts}, status=status.HTTP_200_OK)
