@@ -64,9 +64,11 @@ ROOT_URLCONF = 'project.urls'
 # ]
 
 CORS_ALLOWED_ORIGINS = [
+    'http://172.28.36.130/:4200',
     'http://localhost:4200',
     'http://127.0.0.1:4200',
 ]
+
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
