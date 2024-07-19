@@ -52,6 +52,8 @@ class UserSatisfactionView(generics.CreateAPIView):
 
         counts = {item['satisfaction_level']: item['count'] for item in satisfaction_counts}
 
+        profile_picture_url = user.profile_picture.url if user.profile_picture else None
+
         # Prepare WebSocket message
         message = {
             'type': 'user_satisfaction',
@@ -60,6 +62,7 @@ class UserSatisfactionView(generics.CreateAPIView):
             'satisfaction_level': satisfaction_level,
             'notification_message': notification_message,
             'added_at': timezone.now().isoformat(),
+            'profile_picture_url': profile_picture_url,
             'counts': counts
         }
 
@@ -84,6 +87,11 @@ class LoadUserSatisfactionNotificationsView(generics.ListAPIView):
         group_id = self.kwargs['group_id']
         return UserSatisfaction.objects.filter(group_id=group_id).order_by('-created_at')
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+    
 class LoadSatisfactionCountsView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 

@@ -147,6 +147,9 @@ class AddTopicView(APIView):
             message=message
         )
 
+        # Construir la URL completa de la imagen de perfil
+        profile_picture_url = user.profile_picture.url if user.profile_picture else None
+
         # Enviar notificación por WebSocket
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -160,7 +163,8 @@ class AddTopicView(APIView):
                     'user_id': topic_added.user_id,
                     'group_id': topic_added.group_id,
                     'added_at': topic_added.added_at.isoformat(),
-                    'notification_message': message
+                    'notification_message': message,
+                    'profile_picture_url': profile_picture_url,
                 }
             }
         )

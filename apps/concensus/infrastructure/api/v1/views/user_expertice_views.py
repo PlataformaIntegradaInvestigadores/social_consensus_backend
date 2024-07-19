@@ -99,6 +99,10 @@ class UserExpertiseView(generics.CreateAPIView):
             user=user, group=group, notification_type='user_expertise', message=message
         ).first()
 
+        # Construir la URL completa de la imagen de perfil
+        profile_picture_url = user.profile_picture.url if user.profile_picture else None
+
+
         
         if existing_notification:
             existing_notification.created_at = timezone.now()
@@ -126,7 +130,8 @@ class UserExpertiseView(generics.CreateAPIView):
                         'topic_id': topic_id,
                         'expertise_level': expertise_level,
                         'added_at': user_expertise.updated_at.isoformat(),
-                        'notification_message': message
+                        'notification_message': message,
+                        'profile_picture_url': profile_picture_url,
                     }
                 }
             )

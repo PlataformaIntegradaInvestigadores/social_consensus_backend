@@ -10,7 +10,7 @@ from asgiref.sync import async_to_sync
 from rest_framework.response import Response
 from django.utils import timezone
 
-
+""" Cargar todas notificaciones existentes de la fase uno de un grupo específico """
 class NotificationListView(generics.ListAPIView):
     serializer_class = NotificationSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -18,8 +18,13 @@ class NotificationListView(generics.ListAPIView):
     def get_queryset(self):
         group_id = self.kwargs['group_id']
         return NotificationPhaseOne.objects.filter(group_id=group_id).order_by('created_at')
-    
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+
+""" Cargar todas notificaciones existentes de la fase dos de un grupo específico """
 class NotificationPhaseTwoListView(generics.ListAPIView):
     serializer_class = NotificationPhaseTwoSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -27,6 +32,13 @@ class NotificationPhaseTwoListView(generics.ListAPIView):
     def get_queryset(self):
         group_id = self.kwargs['group_id']
         return NotificationPhaseTwo.objects.filter(group_id=group_id).order_by('created_at')
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+
+
 
 class TopicVisitedView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -115,9 +127,9 @@ class TopicVisitedView(generics.CreateAPIView):
             }
         )
 
-        serializer = NotificationSerializer(notification)
+        # Pasa el contexto con el objeto request al serializador
+        serializer = NotificationSerializer(notification, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
 
 class CombinedSearchView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -179,6 +191,10 @@ class CombinedSearchView(generics.CreateAPIView):
                 message=message
             )
 
+        # Construir la URL completa de la imagen de perfil
+        profile_picture_url = user.profile_picture.url if user.profile_picture else None
+
+
         # Enviar notificación por WebSocket solo si es nueva
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -193,11 +209,12 @@ class CombinedSearchView(generics.CreateAPIView):
                     'group_id': group_id,
                     'notification_message': message,
                     'added_at': notification.created_at.isoformat(),
+                    'profile_picture_url': profile_picture_url,
                 }
             }
         )
 
-        serializer = NotificationSerializer(notification)
+        serializer = NotificationSerializer(notification, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)    
 
 class PhaseOneCompletedView(generics.CreateAPIView):
@@ -229,6 +246,9 @@ class PhaseOneCompletedView(generics.CreateAPIView):
         # Update or create UserPhase
         UserPhase.objects.update_or_create(user=user, group=group, defaults={'phase': 1, 'completed_at': timezone.now()})
 
+         # Construir la URL completa de la imagen de perfil
+        profile_picture_url = user.profile_picture.url if user.profile_picture else None
+
         # Emit WebSocket message
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -241,13 +261,15 @@ class PhaseOneCompletedView(generics.CreateAPIView):
                     'user_id': user_id,
                     'group_id': group_id,
                     'added_at': notification.created_at.isoformat(),
-                    'notification_message': message
+                    'notification_message': message,
+                    'profile_picture_url': profile_picture_url,
                 }
             }
         )
 
-        serializer = NotificationSerializer(notification)
+        serializer = NotificationSerializer(notification, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
     
 
 class TopicReorderView(generics.CreateAPIView):
@@ -292,6 +314,9 @@ class TopicReorderView(generics.CreateAPIView):
             message=message
         )
 
+         # Construir la URL completa de la imagen de perfil
+        profile_picture_url = user.profile_picture.url if user.profile_picture else None
+
         # Enviar notificación por WebSocket
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -304,12 +329,13 @@ class TopicReorderView(generics.CreateAPIView):
                     'user_id': user_id,
                     'group_id': group_id,
                     'added_at': notification.created_at.isoformat(),
-                    'notification_message': message
+                    'notification_message': message,
+                    'profile_picture_url': profile_picture_url,
                 }
             }
         )
 
-        serializer = NotificationPhaseTwoSerializer(notification)
+        serializer = NotificationPhaseTwoSerializer(notification, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -360,6 +386,9 @@ class TopicTagView(generics.CreateAPIView):
             message=message
         )
 
+         # Construir la URL completa de la imagen de perfil
+        profile_picture_url = user.profile_picture.url if user.profile_picture else None
+
         # Enviar notificación por WebSocket
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -372,10 +401,11 @@ class TopicTagView(generics.CreateAPIView):
                     'user_id': user_id,
                     'group_id': group_id,
                     'added_at': notification.created_at.isoformat(),
-                    'notification_message': message
+                    'notification_message': message,
+                    'profile_picture_url': profile_picture_url,
                 }
             }
         )
 
-        serializer = NotificationPhaseTwoSerializer(notification)
+        serializer = NotificationPhaseTwoSerializer(notification, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)

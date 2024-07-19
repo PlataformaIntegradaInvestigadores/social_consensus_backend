@@ -41,7 +41,6 @@ class SaveFinalTopicOrderView(generics.CreateAPIView):
         # Update or create UserPhase
         UserPhase.objects.update_or_create(user_id=user_id, group_id=group_id, defaults={'phase': 2, 'completed_at': timezone.now()})
 
-
         # Send WebSocket notification
         group = apps.get_model('custom_auth', 'Group').objects.get(id=group_id)
         message = f'{request.user.first_name} {request.user.last_name} ✔️ has completed the phase Two'
@@ -55,6 +54,8 @@ class SaveFinalTopicOrderView(generics.CreateAPIView):
             message=message
         )
 
+        profile_picture_url = user.profile_picture.url if user.profile_picture else None
+
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f'phase2_group_{group_id}',
@@ -66,9 +67,10 @@ class SaveFinalTopicOrderView(generics.CreateAPIView):
                     'group_id': group_id,
                     'notification_message': message,
                     'added_at': timezone.now().isoformat(),
+                    'profile_picture_url': profile_picture_url, 
                 }
             }
         )
 
-        notification_serializer = NotificationPhaseTwoSerializer(notification)
+        notification_serializer = NotificationPhaseTwoSerializer(notification, context={'request': request})
         return Response(notification_serializer.data, status=status.HTTP_201_CREATED)
