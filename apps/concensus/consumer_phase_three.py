@@ -11,7 +11,12 @@ class PhaseThreeConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.group_id = self.scope['url_route']['kwargs']['group_id']
         self.group_name = f'phase3_group_{self.group_id}'
-        self.redis = redis.StrictRedis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=0)
+        self.redis = redis.StrictRedis(
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+            password=settings.REDIS_PASSWORD,  # Agrega la autenticación
+            db=0
+        )   
 
         await self.channel_layer.group_add(
             self.group_name,

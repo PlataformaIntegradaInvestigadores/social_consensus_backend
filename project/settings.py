@@ -8,6 +8,8 @@ load_dotenv()  # Carga las variables de entorno del archivo .env
 # Configuración de Redis
 REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
 REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')  # Lee la contraseña de Redis del archivo .env
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -189,36 +191,15 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [("redis", 6379)],
+            "hosts": [
+                {
+                    "address": f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/0",  # Cadena de conexión correcta
+                }
+            ],
         },
     },
 }
 
-""" LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'DEBUG',
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-        'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'ERROR',  # Cambiar de DEBUG a ERROR para reducir la verbosidad
-            'propagate': False,
-        },
-    },
-} """
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
