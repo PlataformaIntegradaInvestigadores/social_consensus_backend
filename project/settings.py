@@ -25,7 +25,9 @@ SECRET_KEY = os.getenv(
 # Convert string "True" from .env to boolean True
 DEBUG = os.getenv('DEBUG') == 'True'
 
-ALLOWED_HOSTS = ["*"]
+#ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ['centinela.epn.edu.ec', '172.28.36.130']
+
 
 # Application definition
 
