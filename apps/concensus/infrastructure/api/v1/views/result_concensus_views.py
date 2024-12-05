@@ -71,6 +71,8 @@ class ExecuteConsensusCalculationsView(generics.GenericAPIView):
                 if username not in expertise_data[topic_name]:
                     expertise_data[topic_name][username] = 1
 
+        # TODO: Implement the consensus calculation algorithm
+        print(positions_data)
         # Calculate the weighted rankings
         weighted_rankings = {}
         for topic_name in topic_names:
