@@ -2,8 +2,7 @@ import logging
 import random
 from rest_framework import viewsets, generics, permissions, status
 from rest_framework.response import Response
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import status
 from django.apps import apps 
 from apps.concensus.domain.entities.topic import RecommendedTopic, Topic, TopicAddedUser
@@ -23,10 +22,18 @@ class TopicViewSet(viewsets.ModelViewSet):
     """ def destroy(self, request, *args, **kwargs):
         return Response({'message':'custom'},status=status.HTTP_405_METHOD_NOT_ALLOWED)
      """
-    @swagger_auto_schema(description='List of topics for a group', manual_parameters=[
-        openapi.Parameter('group_id', openapi.IN_QUERY, description="Group ID", type=openapi.TYPE_STRING)
-    
-    ])
+    @extend_schema(
+        description="List of topics for a group",
+        parameters=[
+            OpenApiParameter(
+                name="group_id",
+                location=OpenApiParameter.QUERY,
+                description="Group ID",
+                required=True,
+                type=str
+            )
+        ],
+    )
     def list(self, request, *args, **kwargs):
         group_id = request.query_params.get('group_id')
         topics = Topic.objects.filter(group__id=group_id)
