@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'drf_yasg',
+    'drf_spectacular',
     'rest_framework',
     'channels',
     'apps',
@@ -174,11 +174,21 @@ SIMPLE_JWT = {
 
 REST_FRAMEWORK = {
     # Configuración para Swagger
-    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
+
+# Configuración de DRF Spectacular
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Social Consensus API',
+    'DESCRIPTION': 'API para la aplicación Social Consensus',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    # OTHER SETTINGS
+}
+
 # URL base para servir archivos media
 MEDIA_URL = '/media/'
 
