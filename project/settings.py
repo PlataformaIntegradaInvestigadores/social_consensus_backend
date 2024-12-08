@@ -25,8 +25,8 @@ SECRET_KEY = os.getenv(
 # Convert string "True" from .env to boolean True
 DEBUG = os.getenv('DEBUG') == 'True'
 
-#ALLOWED_HOSTS = ["*"]
-ALLOWED_HOSTS = ['centinela.epn.edu.ec', '172.28.36.130']
+ALLOWED_HOSTS = ["*"]
+# ALLOWED_HOSTS = ['centinela.epn.edu.ec', '172.28.36.130']
 
 
 # Application definition
@@ -67,12 +67,12 @@ ROOT_URLCONF = 'project.urls'
 #     "http://localhost:4200",
 # ]
 
-CORS_ALLOW_ALL_ORIGINS = True 
+CORS_ALLOW_ALL_ORIGINS = False 
 
-""" CORS_ALLOWED_ORIGINS = [
+CORS_ALLOWED_ORIGINS = [
     'http://localhost:4200',
     'http://127.0.0.1:4200',
-] """
+]
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
