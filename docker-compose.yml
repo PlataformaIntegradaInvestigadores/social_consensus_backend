@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   web:
     build: .
@@ -32,3 +31,4 @@ services:
 
 volumes:
   postgres_data:
+    external: true
