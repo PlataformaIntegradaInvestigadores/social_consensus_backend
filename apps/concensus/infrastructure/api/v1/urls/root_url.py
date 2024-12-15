@@ -8,9 +8,33 @@ from apps.concensus.infrastructure.api.v1.views.topic_views import AddTopicView,
 from apps.concensus.infrastructure.api.v1.views.user_expertice_views import UserExpertiseView
 from apps.concensus.infrastructure.api.v1.views.user_phase_views import UserCurrentPhaseView
 from apps.concensus.infrastructure.api.v1.views.user_satisfaction_views import LoadSatisfactionCountsView, LoadUserSatisfactionNotificationsView, UserSatisfactionView
+from apps.concensus.infrastructure.api.v1.views.debate_views import DebateViewSet
+
 
 def test_view(request):
     return JsonResponse({"message": "Test URL of concensus works!"})
+
+
+
+# Endpoints básicos del ViewSet
+debate_list = DebateViewSet.as_view({
+    'get': 'list',
+    'post': 'create',
+})
+
+debate_detail = DebateViewSet.as_view({
+    'get': 'retrieve',
+    'put': 'update',
+    'delete': 'destroy',
+})
+
+debate_close = DebateViewSet.as_view({
+    'post': 'close',
+})
+
+debate_validate_status = DebateViewSet.as_view({
+    'get': 'validate_status',
+})
 
 urlpatterns=[  
     path('topic/', include('apps.concensus.infrastructure.api.v1.urls.topic_url'), name='topic'),
@@ -39,4 +63,16 @@ urlpatterns=[
     path('groups/<str:group_id>/satisfaction-counts/', LoadSatisfactionCountsView.as_view(), name='satisfaction-counts'),
 
     path('groups/<str:group_id>/current-phase/', UserCurrentPhaseView.as_view(), name='current-phase'),
+    # Ruta para listar o crear debates de un grupo específico
+    path('groups/<str:group_id>/debates/', debate_list, name='debate-list'),
+
+    # Ruta para obtener, actualizar o eliminar un debate específico
+    path('groups/<str:group_id>/debates/<int:pk>/', debate_detail, name='debate-detail'),
+
+    # Ruta para cerrar manualmente un debate específico
+    path('groups/<str:group_id>/debates/<int:pk>/close/', debate_close, name='debate-close'),
+
+    # Ruta para validar el estado de un debate y cerrarlo automáticamente si ha expirado
+    path('groups/<str:group_id>/debates/<int:pk>/validate-status/', debate_validate_status,
+         name='debate-validate-status'),
 ]
