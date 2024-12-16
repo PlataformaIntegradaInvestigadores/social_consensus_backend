@@ -11,29 +11,31 @@ from apps.concensus.infrastructure.api.v1.views.user_satisfaction_views import L
 from apps.concensus.infrastructure.api.v1.views.debate_views import DebateViewSet
 
 
-def test_view(request):
+def test_view(_request):
     return JsonResponse({"message": "Test URL of concensus works!"})
 
 
 
-# Endpoints básicos del ViewSet
+# 1. Ruta para listar y crear debates
 debate_list = DebateViewSet.as_view({
-    'get': 'list',
-    'post': 'create',
+    'get': 'list',        # Permite listar todos los debates de un grupo
+    'post': 'create',     # Permite crear un nuevo debate en un grupo
 })
 
+# 2. Ruta para obtener y eliminar un debate específico
 debate_detail = DebateViewSet.as_view({
-    'get': 'retrieve',
-    'put': 'update',
-    'delete': 'destroy',
+    'get': 'retrieve',    # Permite obtener los detalles de un debate específico
+    'delete': 'destroy',  # Permite eliminar un debate específico si pertenece al grupo
 })
 
+# 3. Ruta para cerrar un debate específico
 debate_close = DebateViewSet.as_view({
-    'post': 'close',
+    'post': 'close',      # Permite cerrar un debate de forma manual
 })
 
+# 4. Ruta para validar el estado de un debate
 debate_validate_status = DebateViewSet.as_view({
-    'get': 'validate_status',
+    'get': 'validate_status',  # Permite verificar si un debate está abierto o cerrado
 })
 
 urlpatterns=[  
