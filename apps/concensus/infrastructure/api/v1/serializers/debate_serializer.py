@@ -32,6 +32,12 @@ class DebateSerializer(serializers.ModelSerializer):
 
         return debate
 
+    def validate(self, data):
+        group = self.context['group']
+        if not group:
+            raise serializers.ValidationError("El grupo especificado no existe.")
+        return data
+
 class DebateParticipantSerializer(serializers.ModelSerializer):
     class Meta:
         model = DebateParticipant
