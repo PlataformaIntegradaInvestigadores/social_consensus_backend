@@ -10,5 +10,4 @@ websocket_urlpatterns = [
     re_path(r'ws/groups/(?P<group_id>\w+)/$', GroupConsumer.as_asgi()),
     re_path(r'ws/phase2/groups/(?P<group_id>\w+)/$', PhaseTwoConsumer.as_asgi()),
     re_path(r'ws/phase3/groups/(?P<group_id>\w+)/$', PhaseThreeConsumer.as_asgi()),
-    re_path(r'ws/debate/$', NotificationConsumer.as_asgi()),
 ]
