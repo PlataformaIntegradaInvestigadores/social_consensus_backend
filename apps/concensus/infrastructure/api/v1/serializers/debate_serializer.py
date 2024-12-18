@@ -41,5 +41,5 @@ class DebateSerializer(serializers.ModelSerializer):
 class DebateParticipantSerializer(serializers.ModelSerializer):
     class Meta:
         model = DebateParticipant
-        fields = ['id', 'debate', 'participant', 'joined_at']
+        fields = ['id', 'debate', 'participant', 'joined_at', 'is_collaborator']
 

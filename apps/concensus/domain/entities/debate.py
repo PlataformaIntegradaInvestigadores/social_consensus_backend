@@ -14,3 +14,12 @@ class Debate(models.Model):
 
     class Meta:
          db_table = 'debates'
+
+    @property
+    def expiration_datetime(self):
+        return self.created_at + self.end_time
+
+    def check_and_close(self):
+        if not self.is_closed and self.expiration_datetime >= self.expiration_datetime:
+            self.is_closed = True
+            self.save()
