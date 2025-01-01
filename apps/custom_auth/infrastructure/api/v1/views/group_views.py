@@ -1,3 +1,6 @@
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from apps.concensus.domain.entities.topic import RecommendedTopic, TopicAddedUser
@@ -6,7 +9,7 @@ from apps.custom_auth.infrastructure.api.v1.serializers.user_serializer import U
 from apps.custom_auth.models import Group
 from apps.custom_auth.infrastructure.api.v1.serializers.group_serializer import GroupDetailSerializer, GroupSerializer , UserGroupSerializer
 from rest_framework.exceptions import PermissionDenied
-
+from apps.concensus.domain.entities.user_phase import UserPhase
 
 class GroupListCreateView(generics.ListCreateAPIView):
     queryset = Group.objects.all()
@@ -117,10 +120,59 @@ class GroupDetailView(generics.RetrieveAPIView):
 
 
 """ para eliminar un miembro en base a su id, solo si esta autenticado y es propietario del grupo """
+# TODO: Api documentation
 class RemoveMemberView(generics.GenericAPIView):
     queryset = Group.objects.all()
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        summary='Remove a member from the group',
+        description=(
+            'Remove a member from the group. Only the group owner can remove a member.'
+        ),
+        responses={
+            200: OpenApiResponse(
+                description='Member removed successfully.',
+                response=Response,
+                examples=[
+                    OpenApiExample(
+                        name='Member removed successfully',
+                        value={'detail': 'Member removed successfully.'}
+                    )
+                ]
+            ),
+            400: OpenApiResponse(
+                description='You cannot remove yourself from the group.',
+                response=Response,
+                examples=[
+                    OpenApiExample(
+                        name='You cannot remove yourself from the group',
+                        value={'detail': 'You cannot remove yourself from the group.'}
+                    )
+                ]
+            ),
+            403: OpenApiResponse(
+                description='You do not have permission to remove this member.',
+                response=Response,
+                examples=[
+                    OpenApiExample(
+                        name='You do not have permission to remove this member',
+                        value={'detail': 'You do not have permission to remove this member.'}
+                    )
+                ]
+            ),
+            404: OpenApiResponse(
+                description='User does not exist.',
+                response=Response,
+                examples=[
+                    OpenApiExample(
+                        name='User does not exist',
+                        value={'detail': 'User does not exist.'}
+                    )
+                ]
+            )
+        }
+    )
     def delete(self, request, *args, **kwargs):
         group = self.get_object()
         user_id = self.kwargs.get('user_id')
@@ -135,5 +187,23 @@ class RemoveMemberView(generics.GenericAPIView):
         if user_to_remove == request.user:
             return Response({'detail': 'You cannot remove yourself from the group.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Eliminar al usuario de los UserPhase asociados al grupo
+        user_phase = UserPhase.objects.filter(user=user_to_remove, group=group.id)
+        if user_phase.exists():
+            user_phase.delete()
+
+        # Eliminar al usuario del grupo
         group.users.remove(user_to_remove)
+
+        # Send WebSocket notification
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(f'phase3_group_{group.id}', {
+            'type': 'group_message',
+            'message': {
+                'type': 'remove_member',
+                'user_id': user_to_remove.id,
+                'message': f'{user_to_remove.username} has been removed from the group.'
+            }
+        })
+
         return Response({'detail': 'Member removed successfully.'}, status=status.HTTP_200_OK)
