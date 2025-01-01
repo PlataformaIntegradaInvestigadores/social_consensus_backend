@@ -4,9 +4,10 @@ from django.urls import include, path
 from apps.concensus.infrastructure.api.v1.views.final_topic_views import SaveFinalTopicOrderView
 from apps.concensus.infrastructure.api.v1.views.notification_views import CombinedSearchView, NotificationListView, NotificationPhaseTwoListView, PhaseOneCompletedView, TopicReorderView, TopicTagView, TopicVisitedView
 from apps.concensus.infrastructure.api.v1.views.result_concensus_views import ExecuteConsensusCalculationsView
-from apps.concensus.infrastructure.api.v1.views.topic_views import AddTopicView, GroupTopicsView, RandomRecommendedTopicView, RecommendedTopicsByGroupView, TopicsAddedByGroupView
+from apps.concensus.infrastructure.api.v1.views.topic_views import AddTopicView, GroupTopicsView, \
+    RandomRecommendedTopicView, RecommendedTopicsByGroupView, TopicsAddedByGroupView, FinalTopicsVotedByUserView
 from apps.concensus.infrastructure.api.v1.views.user_expertice_views import UserExpertiseView
-from apps.concensus.infrastructure.api.v1.views.user_phase_views import UserCurrentPhaseView
+from apps.concensus.infrastructure.api.v1.views.user_phase_views import UserCurrentPhaseView, UpdateGroupPhaseView
 from apps.concensus.infrastructure.api.v1.views.user_satisfaction_views import LoadSatisfactionCountsView, LoadUserSatisfactionNotificationsView, UserSatisfactionView
 
 def test_view(request):
@@ -39,4 +40,8 @@ urlpatterns=[
     path('groups/<str:group_id>/satisfaction-counts/', LoadSatisfactionCountsView.as_view(), name='satisfaction-counts'),
 
     path('groups/<str:group_id>/current-phase/', UserCurrentPhaseView.as_view(), name='current-phase'),
+
+    path('groups/<str:group_id>/update-phase/', UpdateGroupPhaseView.as_view(), name='update-group-phase'),
+
+    path('groups/<str:group_id>/finals-topics/', FinalTopicsVotedByUserView.as_view(), name='finals-topics-voted'),
 ]
