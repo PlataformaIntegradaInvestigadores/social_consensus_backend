@@ -1,5 +1,6 @@
 from django.http import JsonResponse
 from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
 from apps.concensus.infrastructure.api.v1.views.final_topic_views import SaveFinalTopicOrderView
 from apps.concensus.infrastructure.api.v1.views.notification_views import CombinedSearchView, NotificationListView, NotificationPhaseTwoListView, PhaseOneCompletedView, TopicReorderView, TopicTagView, TopicVisitedView
@@ -9,6 +10,9 @@ from apps.concensus.infrastructure.api.v1.views.user_expertice_views import User
 from apps.concensus.infrastructure.api.v1.views.user_phase_views import UserCurrentPhaseView
 from apps.concensus.infrastructure.api.v1.views.user_satisfaction_views import LoadSatisfactionCountsView, LoadUserSatisfactionNotificationsView, UserSatisfactionView
 from apps.concensus.infrastructure.api.v1.views.debate_views import DebateViewSet
+from apps.concensus.infrastructure.api.v1.views.debate_posture_views import PostureViewSet
+from apps.concensus.infrastructure.api.v1.views.debate_reaction_views import ReactionViewSet
+from apps.concensus.infrastructure.api.v1.views.debate_statistics_views import StatisticsView
 
 
 def test_view(_request):
@@ -38,7 +42,12 @@ debate_validate_status = DebateViewSet.as_view({
     'get': 'validate_status',  # Permite verificar si un debate está abierto o cerrado
 })
 
-urlpatterns=[  
+router = DefaultRouter()
+router.register(r'postures', PostureViewSet, basename='postures')
+router.register(r'reactions', ReactionViewSet, basename='reactions')
+
+urlpatterns=[
+    path('', include(router.urls)),
     path('topic/', include('apps.concensus.infrastructure.api.v1.urls.topic_url'), name='topic'),
     path('groups/<str:group_id>/topics/random/', RandomRecommendedTopicView.as_view(), name='random-recommended-topic'),
     path('groups/<str:group_id>/recommended-topics/', RecommendedTopicsByGroupView.as_view(), name='recommended-topics-by-group'),
@@ -77,4 +86,5 @@ urlpatterns=[
     # Ruta para validar el estado de un debate y cerrarlo automáticamente si ha expirado
     path('groups/<str:group_id>/debates/<int:pk>/validate-status/', debate_validate_status,
          name='debate-validate-status'),
+    path('debates/<int:debate_id>/statistics/', StatisticsView.as_view(), name='debate_statistics')
 ]

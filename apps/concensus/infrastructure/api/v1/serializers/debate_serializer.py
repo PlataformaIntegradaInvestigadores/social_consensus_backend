@@ -2,9 +2,6 @@ from rest_framework import serializers
 from apps.concensus.domain.entities.debate import Debate
 from apps.concensus.domain.entities.debate_participant import DebateParticipant
 
-
-
-
 class DebateSerializer(serializers.ModelSerializer):
 
     # created_at = serializers.DateTimeField(format="%y-%m-%d %H:%M:%S")  # Formato personalizado
