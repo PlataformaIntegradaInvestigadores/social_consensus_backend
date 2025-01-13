@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'apps',
     'apps.concensus',
     'apps.custom_auth',
+
 ]
 # ada
 
