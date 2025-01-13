@@ -11,6 +11,7 @@ class UserPosture(models.Model):
     POSTURES = (
         ('agree', 'De acuerdo'),
         ('disagree', 'No de acuerdo'),
+        ('neutral', 'Neutral'),
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='postures')
