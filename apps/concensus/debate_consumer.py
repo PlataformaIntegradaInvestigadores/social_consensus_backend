@@ -1,6 +1,8 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
 from rest_framework.exceptions import PermissionDenied
+
+from apps.concensus.domain.entities.debate_message import Message
 from apps.custom_auth.models import Group, User
 import json
 
@@ -41,28 +43,43 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def receive(self, text_data):
-        try:
-            data = json.loads(text_data)
-            message = data.get('text', '')
-            posture = data.get('posture', 'neutral')  # Obtén la postura desde el mensaje enviado
+        data = json.loads(text_data)
+        user = self.scope['user']
+        group_id = self.scope['url_route']['kwargs']['group_id']
+        debate_id = self.scope['url_route']['kwargs']['debate_id']
+        message_text = data['text']
+        posture = data.get('posture', 'neutral')
+        parent_id = data.get('parent')  # ID del mensaje al que se está respondiendo
 
-            if not message:
-                raise ValueError("El mensaje está vacío.")
+        parent = None
+        if parent_id:
+            parent = await sync_to_async(Message.objects.get)(id=parent_id)
 
-            # Reenviar el mensaje al grupo
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'chat_message',
-                    'message': {
-                        'user': self.scope['user'].username,  # Envía el nombre del usuario
-                        'text': message,
-                        'posture': posture,  # Incluye la postura del usuario
-                    }
+        # Guardar el mensaje
+        message = await sync_to_async(Message.objects.create)(
+            user=user,
+            group_id=group_id,
+            debate_id=debate_id,
+            text=message_text,
+            posture=posture,
+            parent=parent
+        )
+
+        # Enviar el mensaje al grupo
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'chat_message',
+                'message': {
+                    'id': message.id,
+                    'user': user.username,
+                    'text': message_text,
+                    'posture': posture,
+                    'parent': parent_id,
+                    'created_at': message.created_at.isoformat()
                 }
-            )
-        except Exception as e:
-            await self.send(json.dumps({'error': str(e)}))
+            }
+        )
 
     async def chat_message(self, event):
         """

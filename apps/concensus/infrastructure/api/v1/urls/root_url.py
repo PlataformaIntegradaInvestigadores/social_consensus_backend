@@ -2,6 +2,7 @@ from django.http import JsonResponse
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from apps.concensus.infrastructure.api.v1.views.debate_message_views import MessageHistoryView
 from apps.concensus.infrastructure.api.v1.views.final_topic_views import SaveFinalTopicOrderView
 from apps.concensus.infrastructure.api.v1.views.notification_views import CombinedSearchView, NotificationListView, NotificationPhaseTwoListView, PhaseOneCompletedView, TopicReorderView, TopicTagView, TopicVisitedView
 from apps.concensus.infrastructure.api.v1.views.result_concensus_views import ExecuteConsensusCalculationsView
@@ -86,5 +87,8 @@ urlpatterns=[
     # Ruta para validar el estado de un debate y cerrarlo automáticamente si ha expirado
     path('groups/<str:group_id>/debates/<int:pk>/validate-status/', debate_validate_status,
          name='debate-validate-status'),
-    path('debates/<int:debate_id>/statistics/', StatisticsView.as_view(), name='debate_statistics')
+    path('debates/<int:debate_id>/statistics/', StatisticsView.as_view(), name='debate_statistics'),
+
+    path('messages/<int:debate_id>/', MessageHistoryView.as_view(), name='message-history'),
+
 ]
