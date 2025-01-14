@@ -245,7 +245,7 @@ class DebateViewSet(viewsets.ModelViewSet):
 
         # Enviar una notificación de cierre
         user = request.user
-        message = f'{user.first_name} {user.last_name} 🔒 cerró el debate: <i>{debate.title}</i>'
+        message = f'{user.first_name} {user.last_name} 🔒 Close the debate: <i>{debate.title}</i>'
 
         send_notification(
             user=user,
