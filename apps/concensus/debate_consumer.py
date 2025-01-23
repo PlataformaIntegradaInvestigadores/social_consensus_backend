@@ -1,5 +1,6 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
+from django.core.cache import cache
 from rest_framework.exceptions import PermissionDenied
 
 from apps.concensus.domain.entities.debate_message import Message
@@ -7,40 +8,76 @@ from apps.custom_auth.models import Group, User
 import json
 
 class ChatConsumer(AsyncWebsocketConsumer):
+
     async def connect(self):
         self.group_id = self.scope['url_route']['kwargs']['group_id']
         self.debate_id = self.scope['url_route']['kwargs']['debate_id']
         self.room_group_name = f"chat_{self.group_id}_{self.debate_id}"
 
-        try:
-            # Verificar si el usuario está autenticado
-            if not self.scope['user'].is_authenticated:
-                raise PermissionDenied("Usuario no autenticado.")
-
-            # Verificar si el usuario pertenece al grupo
-            is_member = await self.check_group_membership(self.scope['user'], self.group_id)
-            if not is_member:
-                raise PermissionDenied("Acceso denegado al grupo.")
-
-            # Agregar al cliente al grupo WebSocket
-            await self.channel_layer.group_add(
-                self.room_group_name,
-                self.channel_name
-            )
-            await self.accept()
-        except PermissionDenied as e:
+        if not self.scope['user'].is_authenticated:
             await self.close(code=403)
-            print(f"Conexión rechazada: {e}")
-        except Exception as e:
-            await self.close(code=500)
-            print(f"Error al conectar al WebSocket: {e}")
+            return
+
+        is_member = await self.check_group_membership(self.scope['user'], self.group_id)
+        if not is_member:
+            await self.close(code=403)
+            return
+
+        # Agregar usuario a Redis
+        connected_users = cache.get(f"chat_users_{self.debate_id}", set())
+        connected_users.add(self.scope['user'].id)
+        cache.set(f"chat_users_{self.debate_id}", connected_users)
+
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
+        )
+        await self.accept()
+
+    # async def connect(self):
+    #     self.group_id = self.scope['url_route']['kwargs']['group_id']
+    #     self.debate_id = self.scope['url_route']['kwargs']['debate_id']
+    #     self.room_group_name = f"chat_{self.group_id}_{self.debate_id}"
+    #
+    #     try:
+    #         # Verificar si el usuario está autenticado
+    #         if not self.scope['user'].is_authenticated:
+    #             raise PermissionDenied("Usuario no autenticado.")
+    #
+    #         # Verificar si el usuario pertenece al grupo
+    #         is_member = await self.check_group_membership(self.scope['user'], self.group_id)
+    #         if not is_member:
+    #             raise PermissionDenied("Acceso denegado al grupo.")
+    #
+    #         # Agregar al cliente al grupo WebSocket
+    #         await self.channel_layer.group_add(
+    #             self.room_group_name,
+    #             self.channel_name
+    #         )
+    #         await self.accept()
+    #     except PermissionDenied as e:
+    #         await self.close(code=403)
+    #         print(f"Conexión rechazada: {e}")
+    #     except Exception as e:
+    #         await self.close(code=500)
+    #         print(f"Error al conectar al WebSocket: {e}")
 
     async def disconnect(self, close_code):
-        # Remover al cliente del grupo WebSocket
+        # Remover usuario de Redis
+        connected_users = cache.get(f"chat_users_{self.debate_id}", set())
+        connected_users.discard(self.scope['user'].id)
+        cache.set(f"chat_users_{self.debate_id}", connected_users)
+
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
         )
+    # async def disconnect(self, close_code):
+    #     # Remover al cliente del grupo WebSocket
+    #     await self.channel_layer.group_discard(
+    #         self.room_group_name,
+    #         self.channel_name
+    #     )
 
     async def receive(self, text_data):
         data = json.loads(text_data)
