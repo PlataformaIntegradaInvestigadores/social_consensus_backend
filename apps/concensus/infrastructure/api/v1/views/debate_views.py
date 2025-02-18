@@ -162,13 +162,8 @@ class DebateViewSet(viewsets.ModelViewSet):
 
         # Validar y guardar el debate
         serializer = self.get_serializer(data=request.data, context=context)
-        serializer.is_valid(raise_exception=True)
+        serializer.is_valid(raise_exception=True) 
         debate = serializer.save(group=group)
-
-        # Validar que end_time sea mayor a 0
-        # end_time = serializer.validated_data.get('end_time')
-        # if end_time.total_seconds() <= 0:
-        #     raise ValidationError({"detail": "La duración debe ser mayor a 0."})
 
         # Registrar participantes en el debate
         group_users = GroupUser.objects.filter(group=group).values_list("user", flat=True)
