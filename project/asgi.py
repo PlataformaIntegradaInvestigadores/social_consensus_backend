@@ -11,21 +11,24 @@ import os
 import django
 from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.auth import AuthMiddlewareStack
+
 from channels.security.websocket import AllowedHostsOriginValidator
-from apps.concensus.infrastructure.api.v1.urls.routing import websocket_urlpatterns
+
 
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'project.settings')
 django.setup()
 
+from apps.concensus.infrastructure.api.v1.urls.routing import websocket_urlpatterns
+from apps.custom_auth.middleware import JwtAuthMiddleware
+
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
     "websocket": AllowedHostsOriginValidator(
-        AuthMiddlewareStack(
+        JwtAuthMiddleware(
             URLRouter(
                 websocket_urlpatterns
-            )
+            ) 
         )
     ),
 })

@@ -25,8 +25,8 @@ SECRET_KEY = os.getenv(
 # Convert string "True" from .env to boolean True
 DEBUG = os.getenv('DEBUG') == 'True'
 
-#ALLOWED_HOSTS = ["*"]
-ALLOWED_HOSTS = ['centinela.epn.edu.ec', '172.28.36.130']
+ALLOWED_HOSTS = ["*"]
+# ALLOWED_HOSTS = ['centinela.epn.edu.ec', '172.28.36.130']
 
 
 # Application definition
@@ -41,12 +41,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'drf_yasg',
+    'drf_spectacular',
     'rest_framework',
     'channels',
     'apps',
     'apps.concensus',
     'apps.custom_auth',
+
 ]
 # ada
 
@@ -67,12 +68,16 @@ ROOT_URLCONF = 'project.urls'
 #     "http://localhost:4200",
 # ]
 
-CORS_ALLOW_ALL_ORIGINS = True 
+# CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = False
 
-""" CORS_ALLOWED_ORIGINS = [
+CORS_ALLOWED_ORIGINS = [
     'http://localhost:4200',
     'http://127.0.0.1:4200',
-] """
+    'http://localhost:8082',
+    'http://127.0.0.1:8082',
+    'https://centinela.epn.edu.ec',
+]
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
@@ -173,11 +178,21 @@ SIMPLE_JWT = {
 
 REST_FRAMEWORK = {
     # Configuración para Swagger
-    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
+
+# Configuración de DRF Spectacular
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Social Consensus API',
+    'DESCRIPTION': 'API para la aplicación Social Consensus',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    # OTHER SETTINGS
+}
+
 # URL base para servir archivos media
 MEDIA_URL = '/media/'
 

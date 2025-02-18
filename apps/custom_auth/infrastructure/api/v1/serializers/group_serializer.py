@@ -8,7 +8,7 @@ class GroupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Group
-        fields = ['id', 'title', 'description', 'admin_id', 'users']
+        fields = ['id', 'title', 'description', 'admin_id', 'users', 'voting_type']
         read_only_fields = ['id', 'admin']
 
     def create(self, validated_data):
@@ -32,8 +32,8 @@ class GroupSerializer(serializers.ModelSerializer):
 class UserGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
-        fields = ['id', 'title', 'description','admin_id', 'users']
-        read_only_fields = ['id', 'title', 'description','admin_id', 'users']
+        fields = ['id', 'title', 'description','admin_id', 'users', 'voting_type']
+        read_only_fields = ['id', 'title', 'description','admin_id', 'users', 'voting_type']
 
 """ Para consensus recuperar info del grupo y miembros """
 class UserDetailSerializer(serializers.ModelSerializer):
@@ -46,5 +46,5 @@ class GroupDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Group
-        fields = ['id', 'title', 'description', 'admin_id', 'users']
+        fields = ['id', 'title', 'description', 'admin_id', 'users', 'voting_type']
         read_only_fields = ['id', 'admin_id']
