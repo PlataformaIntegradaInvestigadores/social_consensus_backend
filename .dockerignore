@@ -12,8 +12,6 @@ __pycache__/
 venv/
 env/
 ENV/
-.env
-.venv
 pythonenv*
 
 # IDEs y editores
