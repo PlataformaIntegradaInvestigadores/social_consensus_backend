@@ -9,12 +9,14 @@ services:
     depends_on:
       - db
       - redis
+    env_file:
+      - .env
     environment:
       - DJANGO_SETTINGS_MODULE=project.settings
   db:
     image: postgres:16
     ports:
-      - "5433:5432"
+      - 5433:${DB_PORT}
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
@@ -24,7 +26,7 @@ services:
   redis:
     image: redis:6
     ports:
-      - "6379:6379"
+      - 6379:${REDIS_PORT}
     volumes:
       - ./redis.conf:/usr/local/etc/redis/redis.conf  # Mapear el archivo redis.conf
     command: redis-server /usr/local/etc/redis/redis.conf  # Usar redis.conf al arrancar
