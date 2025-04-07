@@ -5,7 +5,7 @@ from rest_framework.routers import DefaultRouter
 from apps.concensus.infrastructure.api.v1.views.debate_message_views import MessageHistoryView
 from apps.concensus.infrastructure.api.v1.views.final_topic_views import SaveFinalTopicOrderView
 from apps.concensus.infrastructure.api.v1.views.notification_views import CombinedSearchView, NotificationListView, NotificationPhaseTwoListView, PhaseOneCompletedView, TopicReorderView, TopicTagView, TopicVisitedView
-from apps.concensus.infrastructure.api.v1.views.result_concensus_views import ExecuteConsensusCalculationsView
+from apps.concensus.infrastructure.api.v1.views.result_concensus_views import ExecuteConsensusCalculationsView, ConsensusCalculationByVotingTypeView
 from apps.concensus.infrastructure.api.v1.views.topic_views import AddTopicView, GroupTopicsView, \
     RandomRecommendedTopicView, RecommendedTopicsByGroupView, TopicsAddedByGroupView, FinalTopicsVotedByUserView
 from apps.concensus.infrastructure.api.v1.views.user_expertice_views import UserExpertiseView
@@ -70,6 +70,8 @@ urlpatterns=[
     path('groups/<str:group_id>/save-final-topic-order/', SaveFinalTopicOrderView.as_view(), name='save-final-topic-order'),
 
     path('groups/<str:group_id>/execute_consensus_calculations/', ExecuteConsensusCalculationsView.as_view(), name='execute_consensus_calculations'),
+    path('groups/<str:group_id>/execute_consensus_calculations/<str:voting_type>/', ConsensusCalculationByVotingTypeView.as_view(), name='execute_consensus_calculations_by_voting_type'),
+
     path('groups/<str:group_id>/user_satisfaction/', UserSatisfactionView.as_view(), name='user_satisfaction'),
     path('groups/<str:group_id>/satisfaction/notifications/', LoadUserSatisfactionNotificationsView.as_view(), name='load-user-satisfaction-notifications'),
 
