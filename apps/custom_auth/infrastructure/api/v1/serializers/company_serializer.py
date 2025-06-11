@@ -13,6 +13,35 @@ class CompanyListSerializer(serializers.ModelSerializer):
 
 
 class CompanyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        """Valida las credenciales de la empresa."""
+        username = attrs.get('username')
+        password = attrs.get('password')
+        
+        # Buscar la empresa por username
+        try:
+            company = Company.objects.get(username=username)
+        except Company.DoesNotExist:
+            raise serializers.ValidationError('No active account found with the given credentials')
+        
+        # Verificar la contraseña
+        if not company.check_password(password):
+            raise serializers.ValidationError('No active account found with the given credentials')
+        
+        # Verificar que la empresa esté activa
+        if not company.is_active:
+            raise serializers.ValidationError('User account is disabled.')
+        
+        # Crear los tokens
+        refresh = self.get_token(company)
+        
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'company_id': company.id,
+            'user_type': 'company'
+        }
+    
     @classmethod
     def get_token(cls, company):
         """Agrega el ID de la empresa al token."""
