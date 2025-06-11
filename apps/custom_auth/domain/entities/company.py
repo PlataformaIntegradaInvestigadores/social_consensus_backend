@@ -94,8 +94,7 @@ class Company(AbstractBaseUser, PermissionsMixin):
             ('51-200', '51-200 empleados'),
             ('201-500', '201-500 empleados'),
             ('501-1000', '501-1000 empleados'),
-            ('1000+', 'Más de 1000 empleados'),
-        ],
+            ('1000+', 'Más de 1000 empleados'),        ],
         null=True, 
         blank=True,
         verbose_name="Número de Empleados"
@@ -107,6 +106,22 @@ class Company(AbstractBaseUser, PermissionsMixin):
     
     # Verificación de empresa
     is_verified = models.BooleanField(default=False, verbose_name="Empresa Verificada")
+    
+    # Solucionando conflictos con User
+    groups = models.ManyToManyField(
+        'auth.Group',
+        verbose_name='groups',
+        blank=True,
+        related_name='company_set_custom',
+        help_text='The groups this company belongs to.',
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        verbose_name='user permissions',
+        blank=True,
+        related_name='company_set_custom',
+        help_text='Specific permissions for this company.',
+    )
 
     objects = CompanyManager()
 
