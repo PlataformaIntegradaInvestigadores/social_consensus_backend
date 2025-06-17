@@ -28,7 +28,7 @@ msgpack==1.1.0
 numpy==1.24.3
 packaging==24.1
 pillow==10.3.0
-pgvector==0.2.4
+pgvector==0.3.6
 psycopg==3.1.19
 psycopg2==2.9.9
 psycopg2-binary==2.9.9

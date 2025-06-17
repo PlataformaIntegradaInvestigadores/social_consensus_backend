@@ -43,11 +43,11 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'drf_spectacular',
     'rest_framework',
-    'channels',
-    'apps',
+    'channels',    'apps',
     'apps.concensus',
     'apps.custom_auth',
     'apps.jobs',
+    'apps.feeds',
 ]
 # ada
 
@@ -113,7 +113,8 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST'),
         'PORT': os.getenv('DB_PORT'),
         'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            # PostgreSQL specific options
+            'sslmode': 'prefer',
         },
     }
 }

@@ -10,7 +10,7 @@ class UserBasicSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'full_name', 'email', 'profile_picture']
+        fields = ['id', 'first_name', 'last_name', 'full_name', 'username', 'profile_picture']
 
 
 class JobBasicSerializer(serializers.ModelSerializer):

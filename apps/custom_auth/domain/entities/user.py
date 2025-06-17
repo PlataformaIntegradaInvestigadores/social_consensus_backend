@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.conf import settings
+from pgvector.django import VectorField
 import os
 import uuid
 import string
@@ -66,6 +67,25 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     
+    # Vectores para recomendaciones - 768 dimensiones
+    job_recommendations_embedding = VectorField(
+        dimensions=768, 
+        null=True, 
+        blank=True, 
+        verbose_name="Vector para recomendaciones de jobs"
+    )
+    feed_recommendations_embedding = VectorField(
+        dimensions=768, 
+        null=True, 
+        blank=True, 
+        verbose_name="Vector para recomendaciones de posts"
+    )
+    
+    # Metadata para embeddings
+    profile_vector_updated_at = models.DateTimeField(null=True, blank=True, verbose_name="Última actualización del vector de perfil")
+    interests = models.TextField(null=True, blank=True, verbose_name="Intereses del usuario (para generar embeddings)")
+    interaction_count = models.IntegerField(default=0, verbose_name="Contador de interacciones para actualización de vectores")
+    
     # Solucionando conflictos con Company
     groups = models.ManyToManyField(
         'auth.Group',
@@ -86,9 +106,13 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['first_name', 'last_name']
-
+    
     def __str__(self):
         return self.username
+
+    def get_full_name(self):
+        """Returns the user's full name."""
+        return f"{self.first_name} {self.last_name}".strip()
 
     def save(self, *args, **kwargs):
         if self.scopus_id == '':
