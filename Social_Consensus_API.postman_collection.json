@@ -1,0 +1,895 @@
+{
+  "info": {
+    "name": "Social Consensus Backend - Complete API",
+    "description": "API completa para el sistema de consenso social con Jobs, Feed y Recomendaciones con IA",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "api_version",
+      "value": "v1",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "job_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "post_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Autenticación",
+      "item": [
+        {
+          "name": "Registro de Usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"first_name\": \"Juan\",\n    \"last_name\": \"Pérez\",\n    \"username\": \"juan.perez@universidad.edu\",\n    \"scopus_id\": \"12345678901\",\n    \"password\": \"miPasswordSeguro123\",\n    \"investigation_camp\": \"Computer Science\",\n    \"institution\": \"Universidad Nacional\",\n    \"interests\": \"machine learning, artificial intelligence, data science\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/register/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "register", ""]
+            }
+          }
+        },
+        {
+          "name": "Registro de Empresa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"company_name\": \"TechCorp S.A.\",\n    \"username\": \"contact@techcorp.com\",\n    \"password\": \"companyPassword123\",\n    \"industry\": \"Software Development\",\n    \"company_size\": \"medium\",\n    \"website\": \"https://techcorp.com\",\n    \"description\": \"Empresa líder en desarrollo de software\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/company/register/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "company", "register", ""]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('access_token', response.access);",
+                  "    pm.environment.set('user_id', response.user_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"juan.perez@universidad.edu\",\n    \"password\": \"miPasswordSeguro123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/token/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token", ""]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refresh\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/token/refresh/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token", "refresh", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💼 Sistema de Jobs",
+      "item": [
+        {
+          "name": "Listar Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/jobs/?q=python&remote=true&experience=mid",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "jobs", ""],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "python",
+                  "description": "Búsqueda de texto"
+                },
+                {
+                  "key": "remote",
+                  "value": "true",
+                  "description": "Trabajo remoto"
+                },
+                {
+                  "key": "experience",
+                  "value": "mid",
+                  "description": "Nivel de experiencia"
+                },
+                {
+                  "key": "location",
+                  "value": "",
+                  "description": "Ubicación",
+                  "disabled": true
+                },
+                {
+                  "key": "type",
+                  "value": "",
+                  "description": "Tipo de trabajo",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Obtener Job Específico",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/jobs/{{job_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "jobs", "{{job_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Crear Job (Solo Empresas)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"Senior Python Developer\",\n    \"description\": \"Buscamos un desarrollador Python senior con experiencia en Django y PostgreSQL. Responsabilidades incluyen desarrollo de APIs REST, optimización de bases de datos y liderazgo técnico.\",\n    \"requirements\": \"3+ años de experiencia en Python, Django, PostgreSQL, conocimientos en Docker y Git\",\n    \"benefits\": \"Trabajo remoto, seguro médico, bonos por desempeño, 25 días de vacaciones\",\n    \"location\": \"Madrid, España\",\n    \"job_type\": \"full_time\",\n    \"experience_level\": \"senior\",\n    \"salary_min\": 45000.00,\n    \"salary_max\": 65000.00,\n    \"is_remote\": true,\n    \"application_deadline\": \"2025-07-15T23:59:59Z\",\n    \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/jobs/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "jobs", ""]
+            }
+          }
+        },
+        {
+          "name": "Actualizar Job",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"Senior Python Developer - ACTUALIZADO\",\n    \"salary_min\": 50000.00,\n    \"salary_max\": 70000.00,\n    \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/jobs/{{job_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "jobs", "{{job_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Eliminar Job",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/jobs/{{job_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "jobs", "{{job_id}}", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📝 Sistema de Postulaciones",
+      "item": [
+        {
+          "name": "Postular a Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"job_id\": 1,\n    \"cover_letter\": \"Estimados señores, me interesa mucho esta posición de Senior Python Developer. Tengo 5 años de experiencia trabajando con Python, Django y PostgreSQL. He liderado equipos de desarrollo y me apasiona crear soluciones eficientes y escalables.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/applications/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "applications", ""]
+            }
+          }
+        },
+        {
+          "name": "Listar Mis Postulaciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/applications/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "applications", ""]
+            }
+          }
+        },
+        {
+          "name": "Ver Postulaciones de un Job (Solo Empresas)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/applications/?job_id={{job_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "applications", ""],
+              "query": [
+                {
+                  "key": "job_id",
+                  "value": "{{job_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar Estado de Postulación (Solo Empresas)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"accepted\",\n    \"company_notes\": \"Candidato muy interesante, programar entrevista técnica\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/applications/{{application_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "applications", "{{application_id}}", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🤖 Recomendaciones con IA",
+      "item": [
+        {
+          "name": "Recomendaciones de Jobs Personalizadas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/jobs/recommendations/?limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "jobs", "recommendations", ""],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Jobs en Tendencia",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/jobs/trending/?limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "jobs", "trending", ""],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Búsqueda Semántica de Jobs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"query\": \"Busco trabajo remoto en inteligencia artificial con Python\",\n    \"limit\": 10,\n    \"filters\": {\n        \"is_remote\": true,\n        \"salary_min\": 40000,\n        \"experience_level\": [\"mid\", \"senior\"]\n    }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/jobs/semantic-search/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "jobs", "semantic-search", ""]
+            }
+          }
+        },
+        {
+          "name": "Actualizar Embeddings de Usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"interests\": \"machine learning, python, django, data science, artificial intelligence\",\n    \"skills\": \"Python, Django, PostgreSQL, Machine Learning, TensorFlow, Docker\",\n    \"experience_summary\": \"5 años desarrollando aplicaciones web con Python y Django, especializado en sistemas de recomendación y análisis de datos\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/users/update-embeddings/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "users", "update-embeddings", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📱 Feed Social",
+      "item": [
+        {
+          "name": "Obtener Feed Personalizado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/feed/?feed_type=personalized&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "feed", ""],
+              "query": [
+                {
+                  "key": "feed_type",
+                  "value": "personalized",
+                  "description": "personalized, trending, latest"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "description": "Para paginación",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Feed con Filtros",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"feed_type\": \"personalized\",\n    \"limit\": 20,\n    \"cursor\": null,\n    \"filters\": {\n        \"tags\": [\"machine-learning\", \"ai\"],\n        \"date_from\": \"2025-06-01T00:00:00Z\",\n        \"date_to\": \"2025-06-16T23:59:59Z\",\n        \"authors\": [],\n        \"has_files\": true,\n        \"content_type\": \"research\"\n    }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/feed/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "feed", ""]
+            }
+          }
+        },
+        {
+          "name": "Posts en Tendencia",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/feed/trending/?limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "feed", "trending", ""],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Recomendaciones de Feed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/feed/recommendations/?limit=15",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "feed", "recommendations", ""],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "15"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Búsqueda Semántica en Feed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"query\": \"investigaciones sobre machine learning en salud\",\n    \"limit\": 15,\n    \"include_embeddings\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/feed/semantic-search/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "feed", "semantic-search", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📝 Gestión de Posts",
+      "item": [
+        {
+          "name": "Crear Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"content\": \"¡Acabo de terminar mi investigación sobre IA aplicada a la medicina! Los resultados preliminares son muy prometedores. Hemos logrado un 95% de precisión en la detección temprana de enfermedades cardiovasculares usando redes neuronales convolucionales.\",\n    \"tags\": [\"ai\", \"research\", \"machine-learning\", \"healthcare\", \"deep-learning\"],\n    \"is_public\": true,\n    \"metadata\": {\n        \"research_type\": \"applied\",\n        \"publication_status\": \"in_progress\"\n    }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/posts/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "posts", ""]
+            }
+          }
+        },
+        {
+          "name": "Obtener Post Específico",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/posts/{{post_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "posts", "{{post_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Actualizar Post",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"content\": \"¡ACTUALIZACIÓN! Mi investigación sobre IA aplicada a la medicina ha sido aceptada para publicación en Journal of Medical AI. Los resultados finales muestran un 97% de precisión.\",\n    \"tags\": [\"ai\", \"research\", \"machine-learning\", \"healthcare\", \"publication\"],\n    \"is_pinned\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/posts/{{post_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "posts", "{{post_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Eliminar Post",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/posts/{{post_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "posts", "{{post_id}}", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💬 Interacciones Sociales",
+      "item": [
+        {
+          "name": "Dar Like a Post",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/posts/{{post_id}}/like/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "posts", "{{post_id}}", "like", ""]
+            }
+          }
+        },
+        {
+          "name": "Quitar Like",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/posts/{{post_id}}/like/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "posts", "{{post_id}}", "like", ""]
+            }
+          }
+        },
+        {
+          "name": "Comentar Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"content\": \"¡Excelente investigación! Me encantó el enfoque metodológico que utilizaste. ¿Podrías compartir más detalles sobre el dataset que empleaste para entrenar el modelo?\",\n    \"parent_comment\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/posts/{{post_id}}/comments/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "posts", "{{post_id}}", "comments", ""]
+            }
+          }
+        },
+        {
+          "name": "Listar Comentarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/posts/{{post_id}}/comments/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "posts", "{{post_id}}", "comments", ""]
+            }
+          }
+        },
+        {
+          "name": "Responder Comentario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"content\": \"Gracias por el feedback! Utilicé el dataset MIMIC-III combinado con imágenes de CardioNet. Te puedo enviar el paper con todos los detalles técnicos.\",\n    \"parent_comment\": \"comment_id_here\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/posts/{{post_id}}/comments/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "posts", "{{post_id}}", "comments", ""]
+            }
+          }
+        },
+        {
+          "name": "Registrar Interacción",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"interaction_type\": \"view\",\n    \"content_type\": \"post\",\n    \"content_id\": \"{{post_id}}\",\n    \"metadata\": {\n        \"time_spent\": 45,\n        \"scroll_depth\": 0.8,\n        \"device_type\": \"desktop\",\n        \"referrer\": \"feed\"\n    }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/interactions/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "interactions", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Estadísticas y Métricas",
+      "item": [
+        {
+          "name": "Estadísticas del Usuario en Feed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/feed/stats/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "feed", "stats", ""]
+            }
+          }
+        },
+        {
+          "name": "Métricas de Job (Solo Empresas)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/jobs/{{job_id}}/metrics/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "jobs", "{{job_id}}", "metrics", ""]
+            }
+          }
+        },
+        {
+          "name": "Métricas de Post",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/posts/{{post_id}}/metrics/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "posts", "{{post_id}}", "metrics", ""]
+            }
+          }
+        },
+        {
+          "name": "Dashboard de Empresa",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/{{api_version}}/companies/dashboard/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "{{api_version}}", "companies", "dashboard", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 Perfil de Usuario",
+      "item": [
+        {
+          "name": "Obtener Mi Perfil",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Actualizar Mi Perfil",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"first_name\": \"Juan Carlos\",\n    \"last_name\": \"Pérez Martínez\",\n    \"investigation_camp\": \"Artificial Intelligence & Machine Learning\",\n    \"institution\": \"Universidad Politécnica de Madrid\",\n    \"email_institution\": \"juan.perez@upm.es\",\n    \"website\": \"https://jcperez.research.com\",\n    \"interests\": \"deep learning, computer vision, natural language processing, healthcare AI\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Subir Foto de Perfil",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "profile_picture",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/profile-picture/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", "profile-picture", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔧 Utilidades y Configuración",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health", ""]
+            }
+          }
+        },
+        {
+          "name": "Información del Sistema",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/system-info/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "system-info", ""]
+            }
+          }
+        },
+        {
+          "name": "Opciones de Configuración",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/config/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "config", ""]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-refresh token si está próximo a expirar",
+          "const accessToken = pm.environment.get('access_token');",
+          "if (accessToken) {",
+          "    try {",
+          "        const payload = JSON.parse(atob(accessToken.split('.')[1]));",
+          "        const now = Math.floor(Date.now() / 1000);",
+          "        const timeUntilExpiry = payload.exp - now;",
+          "        ",
+          "        // Si expira en menos de 5 minutos, refrescar",
+          "        if (timeUntilExpiry < 300) {",
+          "            console.log('Token próximo a expirar, considere refrescarlo');",
+          "        }",
+          "    } catch (e) {",
+          "        console.log('Error al verificar token:', e);",
+          "    }",
+          "}"
+        ]
+      }
+    }
+  ]
+}
