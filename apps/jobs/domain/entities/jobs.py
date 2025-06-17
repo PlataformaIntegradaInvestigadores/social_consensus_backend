@@ -1,4 +1,6 @@
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
+from pgvector.django import VectorField
 from apps.custom_auth.domain.entities.company import Company
 
 
@@ -41,6 +43,13 @@ class Jobs(models.Model):
     application_deadline = models.DateTimeField(null=True, blank=True, verbose_name="Fecha límite de aplicación")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Fecha de actualización")
+      # Campo para el vector de embeddings (768 dimensiones según el microservicio)
+    embedding = VectorField(dimensions=768, null=True, blank=True, verbose_name="Vector de embedding para recomendaciones")
+    
+    # Campos para métricas de recomendación
+    interactions_score = models.FloatField(default=0.0, verbose_name="Score de interacciones")
+    view_count = models.IntegerField(default=0, verbose_name="Número de visualizaciones")
+    application_count = models.IntegerField(default=0, verbose_name="Número de aplicaciones")
 
     def __str__(self):
         return f"{self.title} - {self.company.company_name}"
