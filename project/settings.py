@@ -112,6 +112,9 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD'),
         'HOST': os.getenv('DB_HOST'),
         'PORT': os.getenv('DB_PORT'),
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
     }
 }
 
@@ -249,4 +252,11 @@ LOGGING = {
         },
     },
 }
+
+# Configuración del microservicio de embeddings
+EMBEDDING_SERVICE_URL = os.getenv('EMBEDDING_SERVICE_URL', 'http://localhost:8000')
+EMBEDDING_SERVICE_API_PREFIX = os.getenv('EMBEDDING_SERVICE_API_PREFIX', 'api/v1')
+
+# Configuración de vectores
+VECTOR_DIMENSIONS = 768  # Dimensiones del modelo de embeddings
 
