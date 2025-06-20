@@ -12,6 +12,7 @@ from ..serializers.company_serializer import (
     CompanyProfileSerializer
 )
 from apps.custom_auth.models import Company
+from apps.custom_auth.authentication_mixins import NoAuthenticationRequired
 
 
 class CompanyListView(generics.ListAPIView):
@@ -53,6 +54,7 @@ class CompanyUpdateView(generics.UpdateAPIView):
 class CompanyTokenObtainPairView(TokenObtainPairView):
     """Vista de autenticación JWT para empresas."""
     serializer_class = CompanyTokenObtainPairSerializer
+    authentication_classes = [NoAuthenticationRequired]
 
 
 class CompanyDetailView(generics.RetrieveAPIView):
@@ -76,6 +78,8 @@ class CompanyRegisterView(generics.CreateAPIView):
     """Registro de nuevas empresas."""
     queryset = Company.objects.all()
     serializer_class = CompanyRegisterSerializer
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = [NoAuthenticationRequired]
 
     def create(self, request, *args, **kwargs):
         """Crea una nueva empresa y maneja los errores de validación."""

@@ -72,11 +72,9 @@ ROOT_URLCONF = 'project.urls'
 CORS_ALLOW_CREDENTIALS = False
 
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:4200',
-    'http://127.0.0.1:4200',
-    'http://localhost:8082',
-    'http://127.0.0.1:8082',
-    'https://centinela.epn.edu.ec',
+    origin.strip() for origin in os.getenv('CORS_ALLOWED_ORIGINS', 
+    'http://localhost:4200,http://127.0.0.1:4200,http://localhost:8082,http://127.0.0.1:8082,https://centinela.epn.edu.ec'
+    ).split(',') if origin.strip()
 ]
 
 AUTHENTICATION_BACKENDS = (
@@ -186,6 +184,9 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'apps.custom_auth.authentication.DualUserJWTAuthentication',
     ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
 }
 
 # Configuración de DRF Spectacular
@@ -255,8 +256,7 @@ LOGGING = {
 }
 
 # Configuración del microservicio de embeddings
-EMBEDDING_SERVICE_URL = os.getenv('EMBEDDING_SERVICE_URL', 'http://localhost:8000')
-EMBEDDING_SERVICE_API_PREFIX = os.getenv('EMBEDDING_SERVICE_API_PREFIX', 'api/v1')
+EMBEDDING_SERVICE_URL = os.getenv('EMBEDDING_SERVICE_URL', 'http://localhost:8001')
 
 # Configuración de vectores
 VECTOR_DIMENSIONS = 768  # Dimensiones del modelo de embeddings

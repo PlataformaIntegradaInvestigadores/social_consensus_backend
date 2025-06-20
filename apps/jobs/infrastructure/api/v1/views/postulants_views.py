@@ -58,7 +58,6 @@ class PostulantsView(APIView):
             
             if job_id:
                 queryset = queryset.filter(job_id=job_id)
-            
             if status_filter:
                 queryset = queryset.filter(status=status_filter)
             
@@ -86,8 +85,12 @@ class PostulantsView(APIView):
         if Postulants.objects.filter(user=request.user, job=job).exists():
             return Response({'error': 'Ya te has postulado a este trabajo'}, 
                           status=status.HTTP_400_BAD_REQUEST)
-        
-        serializer = PostulantsSerializer(data=request.data)
+          # Crear los datos para el serializer sin incluir job en los datos de validación
+        serializer_data = request.data.copy()
+        if 'job' in serializer_data:
+            del serializer_data['job']
+            
+        serializer = PostulantsSerializer(data=serializer_data, context={'request': request})
         if serializer.is_valid():
             serializer.save(user=request.user, job=job)
             return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -28,7 +28,7 @@ class JobsSerializer(serializers.ModelSerializer):
             'applications_count'
         ]
         extra_kwargs = {
-            'company': {'write_only': True},  # Solo para escritura, no se muestra en respuesta
+            'company': {'write_only': True, 'required': False},  # Solo para escritura, no se muestra en respuesta, no requerido
         }
     
     def get_applications_count(self, obj):

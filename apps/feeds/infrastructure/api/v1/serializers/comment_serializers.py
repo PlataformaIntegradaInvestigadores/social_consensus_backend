@@ -24,7 +24,7 @@ class CommentSerializer(serializers.ModelSerializer):
             'id',
             'content',
             'author',
-            'parent',
+            'parent_comment',
             'likes_count',
             'replies_count',
             'user_has_liked',
@@ -71,7 +71,7 @@ class CommentCreateSerializer(serializers.ModelSerializer):
         model = Comment
         fields = [
             'content',
-            'parent'
+            'parent_comment'
         ]
     
     def validate_content(self, value):
@@ -82,7 +82,7 @@ class CommentCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Content cannot exceed 1000 characters")
         return value.strip()
     
-    def validate_parent(self, value):
+    def validate_parent_comment(self, value):
         """Validate parent comment"""
         if value and value.is_deleted:
             raise serializers.ValidationError("Cannot reply to deleted comment")

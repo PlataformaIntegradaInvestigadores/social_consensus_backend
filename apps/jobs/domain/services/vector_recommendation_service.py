@@ -24,9 +24,7 @@ class VectorRecommendationService:
         Args:
             embedding_service_url: URL del microservicio de embeddings
         """
-        self.embedding_service_url = embedding_service_url or getattr(
-            settings, 'EMBEDDING_SERVICE_URL', 'http://localhost:8001'
-        )
+        self.embedding_service_url = embedding_service_url or settings.EMBEDDING_SERVICE_URL
     
     def get_embedding_from_microservice(self, job_data: Dict[str, Any]) -> Optional[List[float]]:
         """

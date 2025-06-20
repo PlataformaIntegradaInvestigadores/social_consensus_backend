@@ -18,9 +18,7 @@ class UserVectorService:
     """
     
     def __init__(self, embedding_service_url: str = None):
-        self.embedding_service_url = embedding_service_url or getattr(
-            settings, 'EMBEDDING_SERVICE_URL', 'http://localhost:8000'
-        )
+        self.embedding_service_url = embedding_service_url or settings.EMBEDDING_SERVICE_URL
     
     def get_embedding_from_microservice(self, text: str) -> Optional[List[float]]:
         """
