@@ -28,7 +28,7 @@ class CommentListCreateView(generics.ListCreateAPIView):
         post_id = self.kwargs.get('post_id')
         return Comment.objects.filter(
             post_id=post_id,
-            parent=None,  # Only root comments
+            parent_comment=None,  # Only root comments
             is_deleted=False
         ).select_related('author').order_by('-created_at')
     
@@ -46,10 +46,10 @@ class CommentListCreateView(generics.ListCreateAPIView):
             # Create comment using service
             feed_service = FeedService()
             comment = feed_service.create_comment(
-                user=self.request.user,
-                post=post,
+                author_id=self.request.user.id,
+                post_id=post.id,
                 content=serializer.validated_data['content'],
-                parent=serializer.validated_data.get('parent')
+                parent_comment_id=serializer.validated_data.get('parent_comment').id if serializer.validated_data.get('parent_comment') else None
             )
             
             # Update serializer instance for response
@@ -127,7 +127,7 @@ class CommentRepliesView(generics.ListCreateAPIView):
         """Get replies to a comment"""
         comment_id = self.kwargs.get('comment_id')
         return Comment.objects.filter(
-            parent_id=comment_id,
+            parent_comment_id=comment_id,
             is_deleted=False
         ).select_related('author').order_by('created_at')
     
@@ -152,10 +152,10 @@ class CommentRepliesView(generics.ListCreateAPIView):
             # Create reply using service
             feed_service = FeedService()
             comment = feed_service.create_comment(
-                user=self.request.user,
-                post=parent_comment.post,
+                author_id=self.request.user.id,
+                post_id=parent_comment.post.id,
                 content=serializer.validated_data['content'],
-                parent=parent_comment
+                parent_comment_id=parent_comment.id
             )
             
             # Update serializer instance for response

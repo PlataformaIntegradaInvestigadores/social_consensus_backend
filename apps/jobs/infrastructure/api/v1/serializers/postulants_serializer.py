@@ -35,10 +35,17 @@ class PostulantsSerializer(serializers.ModelSerializer):
             'user_info', 'job_info'
         ]
         extra_kwargs = {
-            'user': {'write_only': True},
-            'job': {'write_only': True},
+            'user': {'write_only': True, 'required': False},
+            'job': {'write_only': True, 'required': False},
             'notes': {'read_only': True},  # Solo las compañías pueden escribir notas
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Para la creación, excluir los campos user y job de la validación
+        if self.context.get('request') and self.context['request'].method == 'POST':
+            self.fields.pop('user', None)
+            self.fields.pop('job', None)
     
     def create(self, validated_data):
         """Crear una nueva postulación"""

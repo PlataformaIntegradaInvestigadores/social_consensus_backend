@@ -80,7 +80,14 @@ class JobsView(APIView):
             return Response({'error': 'Solo las compañías pueden crear trabajos'}, 
                           status=status.HTTP_403_FORBIDDEN)
         
-        serializer = JobsSerializer(data=request.data)
+        # Crear una copia de los datos para no modificar el request original
+        data = request.data.copy()
+        
+        # Remover el campo company si está presente, ya que se establece automáticamente
+        if 'company' in data:
+            data.pop('company')
+        
+        serializer = JobsSerializer(data=data)
         if serializer.is_valid():
             serializer.save(company=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -114,4 +121,3 @@ class JobsView(APIView):
         
         job.delete()
         return Response({'message': 'Trabajo eliminado exitosamente'}, status=status.HTTP_204_NO_CONTENT)
-

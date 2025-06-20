@@ -1,6 +1,5 @@
 from django.http import JsonResponse
 from django.urls import path, re_path
-from rest_framework_simplejwt.views import TokenRefreshView
 from apps.custom_auth.infrastructure.api.v1.views.group_views import GroupDeleteView, GroupDetailView, GroupLeaveView, RemoveMemberView, UserDetailViewtoGroup, UserGroupsListView
 from apps.custom_auth.infrastructure.api.v1.views.company_views import (
     CompanyListView, CompanyUpdateView, CompanyTokenObtainPairView,
@@ -16,7 +15,7 @@ def test_view(request):
 urlpatterns = [
      # URLs para usuarios (investigadores)
      path('token/', UserTokenObtainPairView.as_view(), name='token_obtain_pair'),
-     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+     path('token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
      path('register/', RegisterView.as_view(), name='register'),
      re_path(r'^users/(?P<pk>[a-zA-Z0-9]+)/$',
             UserDetailView.as_view(), name='user-detail'),

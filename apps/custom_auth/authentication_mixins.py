@@ -1,25 +1,24 @@
+from rest_framework.authentication import BaseAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.contrib.auth.models import AnonymousUser
 from apps.custom_auth.models import User, Company
 
 
-class DualUserJWTAuthentication(JWTAuthentication):
+class OptionalJWTAuthentication(JWTAuthentication):
     """
-    Autenticación JWT que puede manejar tanto usuarios como empresas
-    basándose en el contenido del token.
+    Autenticación JWT opcional que no falla si el token es inválido.
+    Útil para endpoints que pueden funcionar con o sin autenticación.
     """
     
     def authenticate(self, request):
         """
-        Sobrescribe el método authenticate para manejar tokens inválidos
-        sin lanzar excepciones en endpoints que permiten acceso anónimo.
+        Intenta autenticar con JWT, pero si falla, retorna None
+        en lugar de lanzar una excepción.
         """
         try:
             return super().authenticate(request)
         except (InvalidToken, TokenError):
-            # Si el token es inválido, retornar None para permitir acceso anónimo
-            # en endpoints que tienen permission_classes = [AllowAny]
             return None
     
     def get_user(self, validated_token):
@@ -47,9 +46,18 @@ class DualUserJWTAuthentication(JWTAuthentication):
                 except User.DoesNotExist:
                     pass
             
-            # Si no se encuentra ni usuario ni empresa, devolver usuario anónimo
-            return AnonymousUser()
+            # Si no se encuentra ni usuario ni empresa, lanzar excepción
+            raise InvalidToken('No valid user found')
             
         except (KeyError, ValueError):
-            # Si hay algún error en el formato del token
-            return AnonymousUser()
+            raise InvalidToken('Invalid token format')
+
+
+class NoAuthenticationRequired(BaseAuthentication):
+    """
+    Clase de autenticación que siempre retorna None,
+    efectivamente deshabilitando la autenticación para una vista específica.
+    """
+    
+    def authenticate(self, request):
+        return None
