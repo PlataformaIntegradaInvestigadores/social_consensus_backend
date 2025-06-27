@@ -5,6 +5,7 @@ from apps.feeds.infrastructure.api.v1.views.feed_views import (
     trending_posts,
     user_feed_stats,
     feed_recommendations,
+    UserPostsView,  # Nueva vista
 )
 
 urlpatterns = [
@@ -13,6 +14,9 @@ urlpatterns = [
     
     # User interactions
     path('interactions/', UserInteractionView.as_view(), name='user-interaction'),
+    
+    # User's own posts
+    path('user/posts/', UserPostsView.as_view(), name='user-posts'),
     
     # Specialized feed endpoints
     path('feed/trending/', trending_posts, name='trending-posts'),

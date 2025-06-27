@@ -39,10 +39,6 @@ urlpatterns = [
          name='profile-information-detail'),
      path('profile-information/<str:user__id>/', PublicProfileInformationDetailView.as_view(),
          name='public-profile-information-detail'),
-     path('posts/', PostListView.as_view(), name='post-list'),
-     path('posts/create/', PostCreateView.as_view(), name='post-create'),
-     path('posts/<pk>/delete/', PostDeleteView.as_view(),
-         name='post-delete'),  # URL para eliminar post
      
      # Nueva ruta para listar grupos del usuario autenticado
      #path('test/user/groups/', UserGroupsListView.as_view(), name='user-groups-list'),

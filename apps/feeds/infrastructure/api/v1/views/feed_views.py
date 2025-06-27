@@ -270,3 +270,74 @@ def feed_recommendations(request):
         'next_cursor': next_cursor,
         'total_count': len(posts)
     })
+
+
+class UserPostsView(generics.ListAPIView):
+    """
+    Get posts from the current authenticated user
+    
+    GET: Get user's own posts with pagination and filters
+    """
+    serializer_class = FeedPostSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        """Get current user's posts"""
+        user = self.request.user
+        queryset = FeedPost.objects.filter(
+            author=user
+        ).select_related('author').prefetch_related(
+            'post_files', 'comments'
+        ).order_by('-created_at')
+        
+        return queryset
+    
+    def list(self, request, *args, **kwargs):
+        """List user posts with pagination"""
+        queryset = self.get_queryset()
+        
+        # Parse pagination parameters
+        limit = min(int(request.GET.get('limit', 20)), 50)
+        cursor = request.GET.get('cursor')
+        
+        # Apply cursor pagination if provided
+        if cursor:
+            try:
+                from datetime import datetime
+                cursor_date = datetime.fromisoformat(cursor.replace('Z', '+00:00'))
+                queryset = queryset.filter(created_at__lt=cursor_date)
+            except (ValueError, TypeError):
+                pass  # Invalid cursor, ignore
+        
+        # Get posts with limit + 1 to check if there's a next page
+        posts = list(queryset[:limit + 1])
+        has_next = len(posts) > limit
+        
+        if has_next:
+            posts = posts[:limit]
+        
+        # Get next cursor
+        next_cursor = None
+        if has_next and posts:
+            next_cursor = posts[-1].created_at.isoformat()
+        
+        # Serialize posts
+        serializer = self.get_serializer(posts, many=True)
+        
+        # Calculate total posts count for user
+        total_count = FeedPost.objects.filter(author=request.user).count()
+        
+        response_data = {
+            'posts': serializer.data,
+            'has_next': has_next,
+            'next_cursor': next_cursor,
+            'total_count': total_count,
+            'user_info': {
+                'id': str(request.user.id),
+                'username': request.user.username,
+                'first_name': request.user.first_name,
+                'last_name': request.user.last_name,
+            }
+        }
+        
+        return Response(response_data, status=status.HTTP_200_OK)

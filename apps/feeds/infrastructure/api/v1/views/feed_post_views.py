@@ -68,7 +68,7 @@ class FeedPostDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        return FeedPost.objects.select_related('author').prefetch_related('files', 'comments')
+        return FeedPost.objects.select_related('author').prefetch_related('post_files', 'comments')
     
     def get_object(self):
         """Get post and record view interaction"""
