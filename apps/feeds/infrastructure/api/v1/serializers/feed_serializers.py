@@ -15,10 +15,31 @@ class FeedRequestSerializer(serializers.Serializer):
     """Serializer for feed requests"""
     feed_type = serializers.ChoiceField(
         choices=['personalized', 'trending', 'latest'],
-        default='personalized'
+        default='personalized',
+        required=False
+    )
+    type = serializers.ChoiceField(
+        choices=['personalized', 'trending', 'latest'],
+        required=False
     )
     limit = serializers.IntegerField(min_value=1, max_value=50, default=20)
     cursor = serializers.CharField(required=False, allow_null=True)
+    
+    def validate(self, attrs):
+        """Custom validation to handle both type and feed_type"""
+        feed_type = attrs.get('feed_type')
+        type_param = attrs.get('type')
+        
+        # Si se proporciona 'type', usarlo como feed_type
+        if type_param:
+            attrs['feed_type'] = type_param
+        elif not feed_type:
+            attrs['feed_type'] = 'personalized'  # default
+            
+        # Limpiar el campo 'type' ya que no lo necesitamos
+        attrs.pop('type', None)
+        
+        return attrs
     
     def validate_cursor(self, value):
         """Validate cursor format"""

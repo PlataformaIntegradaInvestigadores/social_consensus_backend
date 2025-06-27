@@ -178,10 +178,17 @@ class FeedService:
             else:
                 user_obj = User.objects.get(id=user_id)
             
+            logger.info(f"Obteniendo feed personalizado para usuario {user_id}")
+            
             if not user_obj.feed_recommendations_embedding:
                 # Si el usuario no tiene embedding, retornar feed trending
                 logger.info(f"Usuario {user_id} sin embedding, retornando feed trending")
                 return self.get_trending_feed(limit, cursor)
+            
+            # Contar posts disponibles
+            total_posts = FeedPost.objects.filter(is_public=True).count()
+            posts_with_embedding = FeedPost.objects.filter(is_public=True, embedding__isnull=False).count()
+            logger.info(f"Total posts públicos: {total_posts}, Posts con embedding: {posts_with_embedding}")
             
             # Usar embedding del usuario para recomendaciones
             user_embedding = user_obj.feed_recommendations_embedding
@@ -200,7 +207,8 @@ class FeedService:
                 )
             """
             
-            queryset = FeedPost.objects.filter(
+            # Primero intentar con posts que tienen embedding y buena similitud
+            queryset_with_embedding = FeedPost.objects.filter(
                 is_public=True,
                 embedding__isnull=False
             ).annotate(
@@ -208,22 +216,47 @@ class FeedService:
                 hours_old=RawSQL(hours_old_sql, []),
                 recommendation_score=RawSQL(composite_score_sql, [])
             ).filter(
-                similarity__gte=0.3  # Umbral mínimo de similitud
+                similarity__gte=0.1  # Umbral más bajo y permisivo
             ).select_related('author').prefetch_related('post_files').order_by('-recommendation_score')
             
             # Aplicar cursor si se proporciona
             if cursor:
-                queryset = queryset.filter(created_at__lt=cursor)
+                queryset_with_embedding = queryset_with_embedding.filter(created_at__lt=cursor)
             
-            posts = list(queryset[:limit + 1])  # +1 to check if there's more
-            has_next = len(posts) > limit
+            posts_with_embedding = list(queryset_with_embedding[:limit + 1])
+            logger.info(f"Posts encontrados con embedding y similitud >= 0.1: {len(posts_with_embedding)}")
             
-            if has_next:
-                posts = posts[:limit]
-                next_cursor = posts[-1].created_at.isoformat() if posts else None
+            # Si no encontramos suficientes posts con embedding, mezclar con trending
+            if len(posts_with_embedding) < limit:
+                logger.info(f"Completando con posts trending (necesitamos {limit - len(posts_with_embedding)} más)")
+                # Obtener posts trending para completar
+                trending_posts, _, _ = self.get_trending_feed(limit * 2, cursor)
+                
+                # Combinar y evitar duplicados
+                existing_ids = {post.id for post in posts_with_embedding}
+                additional_posts = [post for post in trending_posts if post.id not in existing_ids]
+                
+                # Mezclar los posts
+                all_posts = posts_with_embedding[:limit] + additional_posts
+                final_posts = all_posts[:limit]
+                
+                logger.info(f"Feed final personalizado: {len(final_posts)} posts")
+                
+                has_next = len(all_posts) > limit or len(posts_with_embedding) > limit
+                next_cursor = final_posts[-1].created_at.isoformat() if final_posts else None
+                
+                return final_posts, has_next, next_cursor
             else:
-                next_cursor = None
-                return posts, has_next, next_cursor
+                # Tenemos suficientes posts con embedding
+                has_next = len(posts_with_embedding) > limit
+                if has_next:
+                    posts_with_embedding = posts_with_embedding[:limit]
+                    next_cursor = posts_with_embedding[-1].created_at.isoformat() if posts_with_embedding else None
+                else:
+                    next_cursor = None
+                
+                logger.info(f"Feed personalizado con embedding: {len(posts_with_embedding)} posts")
+                return posts_with_embedding, has_next, next_cursor
             
         except User.DoesNotExist:
             logger.error(f"Usuario {user_id} no encontrado")
@@ -237,6 +270,8 @@ class FeedService:
         Obtiene posts en tendencia basados en engagement
         """
         try:
+            logger.info(f"Obteniendo feed trending con límite: {limit}")
+            
             hours_old_sql = "EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600"
             
             trending_score_sql = f"""
@@ -252,11 +287,21 @@ class FeedService:
                 trending_score=RawSQL(trending_score_sql, [])
             ).select_related('author').prefetch_related('post_files').order_by('-trending_score')
             
+            # Contar posts disponibles
+            total_count = queryset.count()
+            logger.info(f"Posts públicos disponibles para trending: {total_count}")
+            
             # Aplicar cursor si se proporciona
             if cursor:
                 queryset = queryset.filter(created_at__lt=cursor)
             
             posts = list(queryset[:limit + 1])  # +1 to check if there's more
+            
+            # Si no hay posts con engagement score, obtener los más recientes
+            if not posts:
+                logger.info("No hay posts trending, obteniendo los más recientes")
+                return self.get_latest_feed(limit, cursor)
+            
             has_next = len(posts) > limit
             
             if has_next:
@@ -265,10 +310,12 @@ class FeedService:
             else:
                 next_cursor = None
             
+            logger.info(f"Feed trending obtenido: {len(posts)} posts")
             return posts, has_next, next_cursor
             
         except Exception as e:
             logger.error(f"Error obteniendo feed trending: {str(e)}")
+            return self.get_latest_feed(limit, cursor)
             return [], False, None
     
     def handle_user_interaction(self, user_id: str, post_id: str, interaction_type: str):
@@ -378,7 +425,13 @@ class FeedService:
         Obtiene feed con posts más recientes
         """
         try:
+            logger.info(f"Obteniendo feed más reciente con límite: {limit}")
+            
             queryset = FeedPost.objects.filter(is_public=True).order_by('-created_at')
+            
+            # Contar posts disponibles
+            total_count = queryset.count()
+            logger.info(f"Posts públicos más recientes disponibles: {total_count}")
             
             if cursor:
                 # Cursor-based pagination
@@ -393,6 +446,7 @@ class FeedService:
             else:
                 next_cursor = None
             
+            logger.info(f"Feed más reciente obtenido: {len(posts)} posts")
             return posts, has_next, next_cursor
             
         except Exception as e:
