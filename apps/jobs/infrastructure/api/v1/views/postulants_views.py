@@ -137,3 +137,133 @@ class PostulantsView(APIView):
         postulant.delete()
         return Response({'message': 'Postulación eliminada exitosamente'}, status=status.HTTP_204_NO_CONTENT)
 
+
+class ApplicationStatusView(APIView):
+    """Vista para verificar el estado de postulación de un usuario a un trabajo específico"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, job_id):
+        """
+        Verificar si el usuario actual ya postuló al trabajo especificado
+        """
+        # Solo usuarios regulares pueden verificar su estado de postulación
+        if hasattr(request.user, 'company_name'):
+            return Response({'error': 'Las compañías no pueden verificar estado de postulación'}, 
+                          status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            job = Jobs.objects.get(id=job_id, status='active')
+        except Jobs.DoesNotExist:
+            return Response({'error': 'Trabajo no encontrado o no activo'}, 
+                          status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            application = Postulants.objects.get(user=request.user, job=job)
+            return Response({
+                'has_applied': True,
+                'application': {
+                    'id': application.id,
+                    'status': application.status,
+                    'status_display': application.get_status_display_name(),
+                    'applied_at': application.applied_at,
+                    'updated_at': application.updated_at
+                }
+            })
+        except Postulants.DoesNotExist:
+            return Response({
+                'has_applied': False,
+                'application': None
+            })
+
+
+class CompanyApplicationsView(APIView):
+    """Vista específica para que las compañías gestionen las postulaciones a sus trabajos"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, job_id=None):
+        """
+        Obtener postulaciones a los trabajos de la compañía
+        Si se proporciona job_id, filtra por ese trabajo específico
+        """
+        # Solo las compañías pueden acceder a esta vista
+        if not hasattr(request.user, 'company_name'):
+            return Response({'error': 'Solo las compañías pueden acceder a esta vista'}, 
+                          status=status.HTTP_403_FORBIDDEN)
+        
+        # Filtros opcionales
+        status_filter = request.GET.get('status', '')
+        
+        # Obtener todas las postulaciones a trabajos de la compañía
+        queryset = Postulants.objects.filter(job__company=request.user).select_related('user', 'job')
+        
+        # Si se especifica un job_id, filtrar por ese trabajo
+        if job_id:
+            queryset = queryset.filter(job_id=job_id)
+        
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        serializer = PostulantsSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    def put(self, request, job_id=None):
+        """
+        Actualizar el estado de múltiples postulaciones
+        """
+        # Solo las compañías pueden acceder a esta vista
+        if not hasattr(request.user, 'company_name'):
+            return Response({'error': 'Solo las compañías pueden acceder a esta vista'}, 
+                          status=status.HTTP_403_FORBIDDEN)
+        
+        application_id = request.data.get('application_id')
+        new_status = request.data.get('status')
+        notes = request.data.get('notes', '')
+        
+        if not application_id or not new_status:
+            return Response({'error': 'application_id y status son requeridos'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            application = Postulants.objects.get(
+                id=application_id, 
+                job__company=request.user
+            )
+            
+            application.status = new_status
+            if notes:
+                application.notes = notes
+            application.save()
+            
+            serializer = PostulantsSerializer(application)
+            return Response(serializer.data)
+            
+        except Postulants.DoesNotExist:
+            return Response({'error': 'Postulación no encontrada'}, 
+                          status=status.HTTP_404_NOT_FOUND)
+
+
+class UserApplicationsView(APIView):
+    """Vista específica para que los usuarios vean sus propias postulaciones"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Obtener todas las postulaciones del usuario actual
+        """
+        # Solo usuarios regulares pueden acceder a esta vista
+        if hasattr(request.user, 'company_name'):
+            return Response({'error': 'Las compañías no pueden acceder a esta vista'}, 
+                          status=status.HTTP_403_FORBIDDEN)
+        
+        # Filtros opcionales
+        status_filter = request.GET.get('status', '')
+        
+        # Obtener todas las postulaciones del usuario
+        queryset = Postulants.objects.filter(user=request.user).select_related('job', 'job__company')
+        
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        serializer = PostulantsSerializer(queryset, many=True)
+        return Response(serializer.data)
+

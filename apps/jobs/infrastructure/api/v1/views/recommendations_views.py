@@ -31,7 +31,7 @@ class JobRecommendationsView(APIView):
             limit=limit
         )
         
-        serializer = JobsSerializer(recommendations, many=True)
+        serializer = JobsSerializer(recommendations, many=True, context={'request': request})
         return Response({
             'count': len(recommendations),
             'results': serializer.data
@@ -54,7 +54,7 @@ class JobTrendingView(APIView):
         jobs_service = JobsService()
         trending_jobs = jobs_service.get_trending_jobs(limit=limit)
         
-        serializer = JobsSerializer(trending_jobs, many=True)
+        serializer = JobsSerializer(trending_jobs, many=True, context={'request': request})
         return Response({
             'count': len(trending_jobs),
             'results': serializer.data
@@ -91,7 +91,7 @@ class JobSemanticSearchView(APIView):
             user=request.user
         )
         
-        serializer = JobsSerializer(search_results, many=True)
+        serializer = JobsSerializer(search_results, many=True, context={'request': request})
         return Response({
             'query': query,
             'filters': filters,

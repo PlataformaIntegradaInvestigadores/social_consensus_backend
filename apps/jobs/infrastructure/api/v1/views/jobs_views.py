@@ -41,7 +41,7 @@ class JobsView(APIView):
                 return Response({'error': 'Trabajo no disponible'}, 
                               status=status.HTTP_404_NOT_FOUND)
                 
-            serializer = JobsSerializer(job)
+            serializer = JobsSerializer(job, context={'request': request})
             return Response(serializer.data)
         else:
             # Aplicar filtros de búsqueda
@@ -71,7 +71,15 @@ class JobsView(APIView):
             if remote:
                 queryset = queryset.filter(is_remote=remote.lower() == 'true')
             
-            serializer = JobsSerializer(queryset, many=True)
+            # Usar el serializer adecuado según si es listado o detalle
+            # Para listados usar el serializer apropiado según el tipo de usuario
+            user = request.user
+            if hasattr(user, 'company_name'):  # Es una compañía
+                from apps.jobs.infrastructure.api.v1.serializers.jobs_serializer import JobsCompanySerializer
+                serializer = JobsCompanySerializer(queryset, many=True, context={'request': request})
+            else:  # Es un usuario normal
+                from apps.jobs.infrastructure.api.v1.serializers.jobs_serializer import JobsListSerializer
+                serializer = JobsListSerializer(queryset, many=True, context={'request': request})
             return Response(serializer.data)
 
     def post(self, request):

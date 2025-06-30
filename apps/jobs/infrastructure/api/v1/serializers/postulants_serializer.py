@@ -16,10 +16,16 @@ class UserBasicSerializer(serializers.ModelSerializer):
 class JobBasicSerializer(serializers.ModelSerializer):
     """Serializer básico para mostrar información del trabajo"""
     company_name = serializers.CharField(source='company.company_name', read_only=True)
+    company_logo = serializers.CharField(source='company.logo', read_only=True)
+    status_display = serializers.CharField(source='get_status_display_name', read_only=True)
     
     class Meta:
         model = Jobs
-        fields = ['id', 'title', 'company_name', 'location', 'job_type', 'experience_level']
+        fields = [
+            'id', 'title', 'company_name', 'company_logo', 'location', 
+            'job_type', 'experience_level', 'status', 'status_display',
+            'created_at', 'application_deadline'
+        ]
 
 
 class PostulantsSerializer(serializers.ModelSerializer):
