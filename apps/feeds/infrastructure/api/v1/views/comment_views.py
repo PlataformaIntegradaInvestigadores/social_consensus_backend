@@ -54,6 +54,24 @@ class CommentListCreateView(generics.ListCreateAPIView):
             
             # Update serializer instance for response
             serializer.instance = comment
+            
+    def create(self, request, *args, **kwargs):
+        """Create comment and return full representation"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        
+        # Return the full comment representation using the read serializer
+        comment = serializer.instance
+        if comment:
+            response_serializer = CommentDetailSerializer(comment, context={'request': request})
+            headers = self.get_success_headers(response_serializer.data)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        else:
+            return Response(
+                {"error": "No se pudo crear el comentario"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):

@@ -16,7 +16,7 @@ class CommentSerializer(serializers.ModelSerializer):
     """Basic comment serializer"""
     author = CommentAuthorSerializer(read_only=True)
     replies_count = serializers.SerializerMethodField()
-    user_has_liked = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
     
     class Meta:
         model = Comment
@@ -27,7 +27,7 @@ class CommentSerializer(serializers.ModelSerializer):
             'parent_comment',
             'likes_count',
             'replies_count',
-            'user_has_liked',
+            'is_liked',
             'is_deleted',
             'created_at',
             'updated_at'
@@ -37,7 +37,7 @@ class CommentSerializer(serializers.ModelSerializer):
             'author',
             'likes_count',
             'replies_count',
-            'user_has_liked',
+            'is_liked',
             'is_deleted',
             'created_at',
             'updated_at'
@@ -47,7 +47,7 @@ class CommentSerializer(serializers.ModelSerializer):
         """Get count of non-deleted replies"""
         return obj.replies.filter(is_deleted=False).count()
     
-    def get_user_has_liked(self, obj):
+    def get_is_liked(self, obj):
         """Check if current user has liked the comment"""
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
@@ -98,7 +98,7 @@ class CommentDetailSerializer(CommentSerializer):
     
     def get_replies(self, obj):
         """Get comment replies (limited depth)"""
-        if obj.thread_depth >= 3:  # Limit nesting depth
+        if obj.get_level() >= 3:  # Limit nesting depth
             return []
         
         replies = obj.replies.filter(is_deleted=False).order_by('created_at')

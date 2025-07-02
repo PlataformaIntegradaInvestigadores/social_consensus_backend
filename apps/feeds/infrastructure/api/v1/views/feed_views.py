@@ -100,7 +100,7 @@ class FeedView(generics.GenericAPIView):
         )
         
         # Serialize response
-        post_serializer = FeedPostSerializer(
+        post_serializer = FeedPostDetailSerializer(
             posts, 
             many=True, 
             context={'request': request}
@@ -183,7 +183,7 @@ def trending_posts(request):
     ).order_by('-engagement_score', '-created_at')[:limit]
     
     # Serialize
-    serializer = FeedPostSerializer(posts, many=True, context={'request': request})
+    serializer = FeedPostDetailSerializer(posts, many=True, context={'request': request})
     
     return Response({
         'posts': serializer.data,
@@ -278,7 +278,7 @@ class UserPostsView(generics.ListAPIView):
     
     GET: Get user's own posts with pagination and filters
     """
-    serializer_class = FeedPostSerializer
+    serializer_class = FeedPostDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
