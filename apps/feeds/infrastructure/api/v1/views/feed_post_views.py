@@ -28,6 +28,7 @@ class FeedPostListCreateView(generics.ListCreateAPIView):
     POST: Create new post
     """
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]  # Para manejar archivos
     
     def get_queryset(self):
         """Get user's posts"""
@@ -41,23 +42,31 @@ class FeedPostListCreateView(generics.ListCreateAPIView):
         return FeedPostSerializer
     
     def perform_create(self, serializer):
-        """Create post with author and embedding"""
-        with transaction.atomic():
-            # Set author
-            serializer.validated_data['author'] = self.request.user
-            
-            # Create post using service
-            feed_service = FeedService()
-            post = feed_service.create_post(
-                author=self.request.user,
-                content=serializer.validated_data['content'],
-                files=serializer.validated_data.get('files', []),
-                tags=serializer.validated_data.get('tags', []),
-                is_public=serializer.validated_data.get('is_public', True)
-            )
-            
-            # Update serializer instance for response
-            serializer.instance = post
+        """Create post with author"""
+        # Set author before saving
+        serializer.validated_data['author'] = self.request.user
+        
+        # El serializer se encarga de crear el post con archivos y embeddings
+        post = serializer.save()
+        
+        # Generar embedding para el post después de crearlo
+        feed_service = FeedService()
+        feed_service.update_post_embedding(post.id)
+        
+        logger.info(f"Post creado: {post.id} por {self.request.user.username}")
+        
+    def create(self, request, *args, **kwargs):
+        """Create post and return full representation"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        
+        # Return the full post representation using the read serializer
+        post = serializer.instance
+        response_serializer = FeedPostDetailSerializer(post, context={'request': request})
+        
+        headers = self.get_success_headers(response_serializer.data)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class FeedPostDetailView(generics.RetrieveUpdateDestroyAPIView):

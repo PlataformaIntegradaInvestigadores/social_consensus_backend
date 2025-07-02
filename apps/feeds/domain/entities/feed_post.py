@@ -41,6 +41,9 @@ class FeedPost(models.Model):
     is_public = models.BooleanField(default=True, verbose_name="Post público")
     is_pinned = models.BooleanField(default=False, verbose_name="Post fijado")
     
+    # Relación con encuesta (opcional)
+    poll = models.OneToOneField('feeds.Poll', on_delete=models.CASCADE, null=True, blank=True, related_name='post', verbose_name="Encuesta del post")
+    
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Fecha de actualización")
