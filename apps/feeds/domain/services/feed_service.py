@@ -535,6 +535,86 @@ class FeedService:
         except Exception as e:
             logger.error(f"Error toggleando like en comentario: {str(e)}")
             return False
+    
+    def search_posts_by_similarity(self, query: str, limit: int = 20, similarity_threshold: float = 0.3) -> List[FeedPost]:
+        """
+        Busca posts usando similitud vectorial semántica
+        
+        Args:
+            query: Texto de búsqueda
+            limit: Número máximo de resultados
+            similarity_threshold: Umbral mínimo de similitud (0.0 a 1.0)
+            
+        Returns:
+            Lista de posts ordenados por relevancia semántica
+        """
+        try:
+            # Obtener embedding del query de búsqueda
+            query_embedding = self.get_embedding_from_microservice(query)
+            
+            if not query_embedding:
+                logger.warning(f"No se pudo generar embedding para query: {query}")
+                # Fallback a búsqueda básica de texto
+                return list(FeedPost.objects.filter(
+                    is_public=True,
+                    content__icontains=query
+                ).order_by('-created_at')[:limit])
+            
+            # Convertir embedding a string para la consulta SQL
+            embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
+            
+            # Calcular similitud coseno usando operador <#> de pgvector
+            # (1 - (embedding <#> query_embedding)) da la similitud coseno
+            similarity_sql = f"(1 - (embedding <#> '{embedding_str}'))"
+            
+            # Query con similitud y score compuesto
+            queryset = FeedPost.objects.filter(
+                is_public=True,
+                embedding__isnull=False  # Solo posts que tienen embedding
+            ).annotate(
+                similarity=RawSQL(similarity_sql, [])
+            ).filter(
+                similarity__gte=similarity_threshold
+            ).select_related('author').prefetch_related('post_files').order_by('-similarity')
+            
+            posts = list(queryset[:limit])
+            
+            logger.info(f"Búsqueda vectorial para '{query}': {len(posts)} posts encontrados con similitud >= {similarity_threshold}")
+            
+            # Si no encontramos suficientes resultados con alta similitud, 
+            # bajar el umbral y completar
+            if len(posts) < limit and similarity_threshold > 0.1:
+                additional_posts = self.search_posts_by_similarity(
+                    query=query, 
+                    limit=limit - len(posts), 
+                    similarity_threshold=0.1
+                )
+                
+                # Evitar duplicados
+                existing_ids = {post.id for post in posts}
+                posts.extend([post for post in additional_posts if post.id not in existing_ids])
+            
+            # Si aún no tenemos suficientes, hacer fallback a búsqueda de texto
+            if len(posts) < limit // 2:  # Si tenemos menos de la mitad de lo solicitado
+                logger.info(f"Pocos resultados vectoriales, complementando con búsqueda de texto")
+                text_search_posts = list(FeedPost.objects.filter(
+                    is_public=True,
+                    content__icontains=query
+                ).exclude(
+                    id__in=[post.id for post in posts]
+                ).order_by('-created_at')[:limit - len(posts)])
+                
+                posts.extend(text_search_posts)
+            
+            return posts[:limit]
+            
+        except Exception as e:
+            logger.error(f"Error en búsqueda vectorial: {str(e)}")
+            # Fallback completo a búsqueda básica
+            return list(FeedPost.objects.filter(
+                is_public=True,
+                content__icontains=query
+            ).order_by('-created_at')[:limit])
 
 
 # Instancia global del servicio
