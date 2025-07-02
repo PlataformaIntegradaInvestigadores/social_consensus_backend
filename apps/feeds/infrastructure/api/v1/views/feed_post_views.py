@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.db.models import Case, When
+import logging
 
 from apps.feeds.domain.entities.feed_post import FeedPost
 from apps.feeds.domain.entities.post_file import PostFile
@@ -14,6 +16,8 @@ from apps.feeds.infrastructure.api.v1.serializers.feed_post_serializers import (
     FeedPostDetailSerializer,
     PostFileSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class FeedPostListCreateView(generics.ListCreateAPIView):
@@ -147,21 +151,59 @@ class FeedPostFileUploadView(generics.CreateAPIView):
 
 class FeedPostSearchView(generics.ListAPIView):
     """
-    Search feed posts
+    Search feed posts using vector similarity and text search
     
-    GET: Search posts by content, tags, author
+    GET: Search posts by semantic similarity, content, tags, author
     """
     serializer_class = FeedPostSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        """Search posts"""
-        queryset = FeedPost.objects.filter(is_public=True)
+        """Search posts using vector similarity or fallback to text search"""
+        from apps.feeds.domain.services.feed_service import FeedService
         
         # Search parameters
         query = self.request.query_params.get('q', '')
         tags = self.request.query_params.getlist('tags', [])
         author = self.request.query_params.get('author', '')
+        use_vector_search = self.request.query_params.get('vector', 'true').lower() == 'true'
+        limit = int(self.request.query_params.get('limit', '20'))
+        
+        if not query and not tags and not author:
+            return FeedPost.objects.none()
+        
+        feed_service = FeedService()
+        
+        # Si hay query de texto y vector search está habilitado, usar búsqueda vectorial
+        if query and use_vector_search:
+            try:
+                posts = feed_service.search_posts_by_similarity(query, limit=limit)
+                
+                # Filtrar adicionalmente por tags y autor si se especifican
+                if tags or author:
+                    post_ids = [post.id for post in posts]
+                    queryset = FeedPost.objects.filter(id__in=post_ids)
+                    
+                    if tags:
+                        queryset = queryset.filter(tags__overlap=tags)
+                    if author:
+                        queryset = queryset.filter(author__username__icontains=author)
+                    
+                    return queryset.order_by('-created_at')
+                
+                # Retornar como queryset manteniendo el orden
+                if posts:
+                    post_ids = [post.id for post in posts]
+                    preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(post_ids)])
+                    return FeedPost.objects.filter(id__in=post_ids).order_by(preserved)
+                else:
+                    return FeedPost.objects.none()
+                    
+            except Exception as e:
+                logger.error(f"Error en búsqueda vectorial, fallback a texto: {str(e)}")
+        
+        # Fallback a búsqueda tradicional
+        queryset = FeedPost.objects.filter(is_public=True)
         
         if query:
             queryset = queryset.filter(content__icontains=query)
