@@ -5,13 +5,13 @@ from apps.jobs.domain.entities.postulants import Postulants
 
 @admin.register(Jobs)
 class JobsAdmin(admin.ModelAdmin):
-    list_display = ('title', 'company', 'status', 'job_type', 'experience_level', 'location', 'is_remote', 'created_at')
-    list_filter = ('status', 'job_type', 'experience_level', 'is_remote', 'company', 'created_at')
+    list_display = ('title', 'company', 'job_type', 'experience_level', 'location', 'is_remote', 'created_at')
+    list_filter = ('job_type', 'experience_level', 'is_remote', 'company', 'created_at')
     search_fields = ('title', 'description', 'company__company_name', 'location')
     readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
         ('Información básica', {
-            'fields': ('company', 'title', 'description', 'status')
+            'fields': ('company', 'title', 'description')
         }),
         ('Detalles del puesto', {
             'fields': ('job_type', 'experience_level', 'location', 'is_remote', 'requirements', 'benefits')

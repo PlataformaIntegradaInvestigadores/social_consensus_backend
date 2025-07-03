@@ -33,7 +33,7 @@ class CompanyListView(generics.ListAPIView):
 class CompanyUpdateView(generics.UpdateAPIView):
     """Permite a una empresa actualizar su perfil."""
     queryset = Company.objects.all()
-    serializer_class = CompanySerializer
+    serializer_class = CompanyProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
 

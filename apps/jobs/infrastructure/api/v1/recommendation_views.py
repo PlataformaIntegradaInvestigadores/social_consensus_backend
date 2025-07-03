@@ -19,30 +19,22 @@ from apps.jobs.infrastructure.api.v1.serializers import JobsSerializer
 def get_job_recommendations(request):
     """
     Obtiene recomendaciones de jobs para el usuario actual basadas en embeddings
+    Si no hay embedding de usuario, devuelve jobs trending como fallback
     """
     try:
         # Parámetros de consulta
         limit = int(request.GET.get('limit', 10))
         user_id = request.user.id
         
-        # TODO: Aquí deberías obtener el embedding del usuario desde tu microservicio
-        # Por ahora, simularemos con un embedding de ejemplo
-        # En producción, esto vendría de tu microservicio de perfiles de usuario
+        # Intentar obtener el embedding del usuario
         user_embedding = get_user_embedding_vector(user_id)
         
-        if not user_embedding:
-            return Response({
-                'error': 'No se pudo obtener el perfil vectorial del usuario'
-            }, status=status.HTTP_400_BAD_REQUEST)        # Obtener jobs ya vistos por el usuario (opcional)
-        # exclude_job_ids = get_user_viewed_jobs(user_id)
-        exclude_job_ids = []
-        
-        # Obtener recomendaciones
+        # Usar el método mejorado que incluye fallback automático
         recommended_jobs = vector_service.get_similar_jobs(
             user_embedding=user_embedding,
             limit=limit,
-            exclude_job_ids=exclude_job_ids,
-            similarity_threshold=0.6
+            exclude_job_ids=[],
+            similarity_threshold=0.4  # Threshold más bajo para más resultados
         )
         
         # Serializar los resultados
@@ -53,17 +45,20 @@ def get_job_recommendations(request):
         for job_data, job_instance in zip(serializer.data, recommended_jobs):
             recommendation_info = {
                 **job_data,
-                'recommendation_score': float(job_instance.recommendation_score),
-                'similarity': float(job_instance.similarity),
-                'hours_old': float(job_instance.hours_old),
-                'recommendation_reason': get_recommendation_reason(job_instance)
+                'recommendation_score': getattr(job_instance, 'recommendation_score', 0.5),
+                'similarity': getattr(job_instance, 'similarity', 0.5),
+                'hours_old': getattr(job_instance, 'hours_old', 0),
+                'recommendation_reason': get_recommendation_reason(job_instance),
+                'is_fallback': not user_embedding  # Indica si es fallback por falta de embedding
             }
             recommendations_data.append(recommendation_info)
         
         return Response({
             'recommendations': recommendations_data,
             'total_count': len(recommendations_data),
-            'user_id': user_id
+            'user_id': user_id,
+            'has_user_embedding': bool(user_embedding),
+            'recommendation_type': 'vectorial' if user_embedding else 'trending_fallback'
         })
         
     except Exception as e:
@@ -122,10 +117,10 @@ def track_job_interaction(request, job_id):
         
         # Verificar que el job existe
         try:
-            job = Jobs.objects.get(id=job_id, status='active')
+            job = Jobs.objects.get(id=job_id)
         except Jobs.DoesNotExist:
             return Response({
-                'error': 'Job no encontrado o inactivo'
+                'error': 'Job no encontrado'
             }, status=status.HTTP_404_NOT_FOUND)
         
         # Registrar la interacción

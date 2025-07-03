@@ -5,13 +5,6 @@ from apps.custom_auth.domain.entities.company import Company
 
 
 class Jobs(models.Model):
-    STATUS_CHOICES = [
-        ('active', 'Activo'),
-        ('inactive', 'Inactivo'),
-        ('closed', 'Cerrado'),
-        ('draft', 'Borrador'),
-    ]
-    
     EXPERIENCE_CHOICES = [
         ('entry', 'Sin experiencia'),
         ('junior', 'Junior (1-2 años)'),
@@ -38,7 +31,6 @@ class Jobs(models.Model):
     experience_level = models.CharField(max_length=20, choices=EXPERIENCE_CHOICES, default='entry', verbose_name="Nivel de experiencia")
     salary_min = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Salario mínimo")
     salary_max = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Salario máximo")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Estado")
     is_remote = models.BooleanField(default=False, verbose_name="Trabajo remoto")
     application_deadline = models.DateTimeField(null=True, blank=True, verbose_name="Fecha límite de aplicación")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
@@ -53,10 +45,6 @@ class Jobs(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.company.company_name}"
-
-    def get_status_display_name(self):
-        """Retorna el nombre del estado en español."""
-        return dict(self.STATUS_CHOICES).get(self.status, 'Borrador')
     
     def get_experience_display_name(self):
         """Retorna el nombre del nivel de experiencia en español."""

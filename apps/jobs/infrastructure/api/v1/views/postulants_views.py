@@ -76,9 +76,9 @@ class PostulantsView(APIView):
                           status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            job = Jobs.objects.get(id=job_id, status='active')
+            job = Jobs.objects.get(id=job_id)
         except Jobs.DoesNotExist:
-            return Response({'error': 'Trabajo no encontrado o no activo'}, 
+            return Response({'error': 'Trabajo no encontrado'}, 
                           status=status.HTTP_404_NOT_FOUND)
         
         # Verificar si ya se postuló
@@ -152,9 +152,9 @@ class ApplicationStatusView(APIView):
                           status=status.HTTP_403_FORBIDDEN)
         
         try:
-            job = Jobs.objects.get(id=job_id, status='active')
+            job = Jobs.objects.get(id=job_id)
         except Jobs.DoesNotExist:
-            return Response({'error': 'Trabajo no encontrado o no activo'}, 
+            return Response({'error': 'Trabajo no encontrado'}, 
                           status=status.HTTP_404_NOT_FOUND)
         
         try:

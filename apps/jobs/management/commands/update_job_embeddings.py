@@ -37,7 +37,7 @@ class Command(BaseCommand):
         batch_size = options['batch_size']
 
         # Filtros base
-        filters = Q(status='active')
+        filters = Q()
         
         if job_id:
             filters &= Q(id=job_id)

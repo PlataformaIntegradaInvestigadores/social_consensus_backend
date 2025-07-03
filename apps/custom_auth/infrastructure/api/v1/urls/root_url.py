@@ -5,6 +5,7 @@ from apps.custom_auth.infrastructure.api.v1.views.company_views import (
     CompanyListView, CompanyUpdateView, CompanyTokenObtainPairView,
     CompanyDetailView, CompanyProfileView, CompanyRegisterView
 )
+from apps.custom_auth.infrastructure.api.v1.views.company_choices_views import CompanyChoicesView
 from apps.custom_auth.views import *
 
 def test_view(request):
@@ -28,6 +29,7 @@ urlpatterns = [
      path('companies/register/', CompanyRegisterView.as_view(), name='company_register'),
      path('companies/', CompanyListView.as_view(), name='company-list'),
      path('companies/profile/', CompanyProfileView.as_view(), name='company-profile'),
+     path('companies/choices/', CompanyChoicesView.as_view(), name='company-choices'),
      re_path(r'^companies/(?P<pk>[a-zA-Z0-9]+)/$',
             CompanyDetailView.as_view(), name='company-detail'),
      re_path(r'^companies/(?P<pk>[a-zA-Z0-9]+)/update/$',
