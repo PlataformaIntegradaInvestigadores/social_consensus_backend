@@ -5,7 +5,8 @@ from apps.feeds.infrastructure.api.v1.views.feed_views import (
     trending_posts,
     user_feed_stats,
     feed_recommendations,
-    UserPostsView,  # Nueva vista
+    UserPostsView,
+    explain_post_trending,  # Nuevo endpoint de debug
 )
 
 urlpatterns = [
@@ -24,4 +25,7 @@ urlpatterns = [
     
     # User stats
     path('feed/stats/', user_feed_stats, name='user-feed-stats'),
+    
+    # Debug endpoint para explicar algoritmo de trending
+    path('posts/<uuid:post_id>/explain-trending/', explain_post_trending, name='explain-post-trending'),
 ]

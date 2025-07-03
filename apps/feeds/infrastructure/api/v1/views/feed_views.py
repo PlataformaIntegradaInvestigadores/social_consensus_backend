@@ -176,17 +176,41 @@ def trending_posts(request):
     else:
         time_threshold = now - timezone.timedelta(hours=24)
     
-    # Get trending posts
+    # Calcular horas desde la creación para mostrar en respuesta
+    hours_old_sql = "EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600"
+    
+    # Obtener trending score mejorado para ordenamiento
+    trending_score_sql = """
+        (
+            engagement_score * 0.8 + 
+            (engagement_score / GREATEST(1, SQRT(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600))) * 0.2
+        )
+    """
+    
+    # Get trending posts con score calculado
     posts = FeedPost.objects.filter(
         created_at__gte=time_threshold,
         is_public=True
-    ).order_by('-engagement_score', '-created_at')[:limit]
+    ).annotate(
+        hours_old=models.RawSQL(hours_old_sql, []),
+        trending_rank=models.RawSQL(trending_score_sql, []),
+        comments_count_real=models.Count('comments', filter=models.Q(comments__is_deleted=False))
+    ).order_by('-trending_rank', '-engagement_score', '-created_at')[:limit]
     
     # Serialize
     serializer = FeedPostDetailSerializer(posts, many=True, context={'request': request})
     
+    # Agregar metadatos de trending a la respuesta
+    post_data = serializer.data
+    for i, post in enumerate(posts):
+        post_data[i]['trending_metadata'] = {
+            'hours_old': round(post.hours_old, 1),
+            'engagement_score': round(post.engagement_score, 2),
+            'trending_rank': round(getattr(post, 'trending_rank', 0), 2)
+        }
+    
     return Response({
-        'posts': serializer.data,
+        'posts': post_data,
         'time_range': time_range,
         'total_count': len(posts)
     })
@@ -341,3 +365,49 @@ class UserPostsView(generics.ListAPIView):
         }
         
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@perm_classes([permissions.IsAuthenticated])
+def explain_post_trending(request, post_id):
+    """
+    Explica en detalle el cálculo del trending score para un post específico
+    
+    GET: Obtener explicación detallada del algoritmo de trending
+    """
+    try:
+        post = get_object_or_404(FeedPost, id=post_id)
+        
+        # Obtener explicación del algoritmo
+        explanation = post.explain_trending_score()
+        
+        # Agregar datos adicionales del post
+        explanation.update({
+            "author": f"{post.author.first_name} {post.author.last_name}",
+            "content_preview": post.content[:100] + "..." if len(post.content) > 100 else post.content,
+            "created_at": post.created_at,
+            "current_time": timezone.now(),
+        })
+        
+        # Explicación del algoritmo en términos entendibles
+        explanation["algorithm_explanation"] = [
+            "El trending score se calcula en base a los siguientes factores:",
+            f"1. Engagement bruto: likes ({explanation['likes']}) × 1 + comentarios ({explanation['comments']}) × 2 + compartidos ({explanation['shares']}) × 3 + vistas ({explanation['views']}) × 0.1 = {explanation['raw_engagement_score']}",
+            f"2. Factor de decaimiento: {explanation['time_decay_factor']} (basado en {explanation['created_hours_ago']} horas desde publicación y engagement de {explanation['engagement_weight']})",
+            f"3. Engagement con decaimiento: {explanation['engagement_score']} (engagement bruto × factor de decaimiento)",
+            f"4. Boost por velocidad reciente: {explanation['velocity_boost']} (inversamente proporcional a la raíz del tiempo)",
+            f"5. Trending score final: {explanation['trending_score']} (80% engagement con decaimiento + 20% boost por velocidad)"
+        ]
+        
+        return Response(explanation)
+        
+    except FeedPost.DoesNotExist:
+        return Response(
+            {"error": f"Post with ID {post_id} not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

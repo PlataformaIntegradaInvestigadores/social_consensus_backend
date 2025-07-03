@@ -38,6 +38,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
     files = PostFileSerializer(source='post_files', many=True, read_only=True)
     poll = PollSerializer(read_only=True)
     is_liked = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
     
     class Meta:
         model = FeedPost
@@ -85,6 +86,12 @@ class FeedPostSerializer(serializers.ModelSerializer):
                 object_id=obj.id
             ).exists()
         return False
+        
+    def get_comments_count(self, obj):
+        """Get accurate comments count"""
+        if hasattr(obj, 'comments_count_real'):
+            return obj.comments_count_real
+        return obj.comments.filter(is_deleted=False).count()
 
 
 class FeedPostCreateSerializer(serializers.ModelSerializer):

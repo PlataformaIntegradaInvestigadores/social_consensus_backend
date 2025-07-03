@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from pgvector.django import VectorField
 import uuid
+import math
 
 User = get_user_model()
 
@@ -60,6 +61,7 @@ class FeedPost(models.Model):
             models.Index(fields=['-created_at']),
             models.Index(fields=['-engagement_score']),
             models.Index(fields=['author', '-created_at']),
+            models.Index(fields=['-engagement_score', '-created_at'], name='trending_idx'),
         ]
     
     def __str__(self):
@@ -80,8 +82,18 @@ class FeedPost(models.Model):
             self.views_count * 0.1
         )
         
-        # Penalización por tiempo (decay factor)
-        time_decay = 1 / (1 + hours_old / 24)  # Decae por días
+        # Evitar división por cero si el post es muy reciente
+        if hours_old < 1:
+            hours_old = 1
+            
+        # Puntuación de engagement ponderada para el decaimiento
+        engagement_weight = min(raw_score / 10, 5)  # Limitar a máximo 5x
+        
+        # Decaimiento logarítmico ajustado por engagement
+        # - Posts con más engagement decaen más lentamente
+        # - Uso de logaritmo para un decaimiento más gradual
+        # - El factor base 1.5 determina la velocidad de decaimiento
+        time_decay = 1 / (1 + math.log(hours_old / 24 + 1, 1.5 + (engagement_weight / 10)))
         
         self.engagement_score = raw_score * time_decay
         self.save(update_fields=['engagement_score'])
@@ -89,6 +101,44 @@ class FeedPost(models.Model):
     def get_files(self):
         """Retorna todos los archivos asociados al post"""
         return self.post_files.all()
+    
+    def explain_trending_score(self):
+        """
+        Explica detalladamente cómo se calcula el score de trending para este post
+        """
+        hours_old = (timezone.now() - self.created_at).total_seconds() / 3600
+        
+        # Calcular raw_score
+        raw_score = (
+            self.likes_count * 1.0 +
+            self.comments_count * 2.0 +
+            self.shares_count * 3.0 +
+            self.views_count * 0.1
+        )
+        
+        # Recalcular todos los factores
+        engagement_weight = min(raw_score / 10, 5)
+        time_decay = 1 / (1 + math.log(max(1, hours_old) / 24 + 1, 1.5 + (engagement_weight / 10)))
+        engagement_score = raw_score * time_decay
+        
+        # Calcular trending_score
+        velocity_boost = engagement_score / max(1, math.sqrt(max(1, hours_old)))
+        trending_score = engagement_score * 0.8 + velocity_boost * 0.2
+        
+        return {
+            "post_id": str(self.id),
+            "created_hours_ago": round(hours_old, 2),
+            "likes": self.likes_count,
+            "comments": self.comments_count,
+            "shares": self.shares_count,
+            "views": self.views_count,
+            "raw_engagement_score": round(raw_score, 2),
+            "engagement_weight": round(engagement_weight, 2),
+            "time_decay_factor": round(time_decay, 4),
+            "engagement_score": round(engagement_score, 2),
+            "velocity_boost": round(velocity_boost, 2),
+            "trending_score": round(trending_score, 2)
+        }
     
     def get_images(self):
         """Retorna solo las imágenes del post"""
