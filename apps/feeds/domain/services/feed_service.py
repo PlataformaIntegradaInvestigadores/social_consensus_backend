@@ -4,7 +4,8 @@ Servicio principal para manejo del feed social con embeddings y recomendaciones
 import requests
 import logging
 from typing import List, Optional, Dict, Any
-from django.db.models import QuerySet, F, Q
+from django.db import models
+from django.db.models import QuerySet, F, Q, Count
 from django.db.models.expressions import RawSQL
 from django.conf import settings
 from django.utils import timezone
@@ -214,10 +215,11 @@ class FeedService:
             ).annotate(
                 similarity=RawSQL(similarity_sql, []),
                 hours_old=RawSQL(hours_old_sql, []),
-                recommendation_score=RawSQL(composite_score_sql, [])
+                recommendation_score=RawSQL(composite_score_sql, []),
+                comments_count_real=models.Count('comments', filter=models.Q(comments__is_deleted=False))
             ).filter(
                 similarity__gte=0.1  # Umbral más bajo y permisivo
-            ).select_related('author').prefetch_related('post_files').order_by('-recommendation_score')
+            ).select_related('author').prefetch_related('post_files', 'comments').order_by('-recommendation_score')
             
             # Aplicar cursor si se proporciona
             if cursor:
@@ -274,9 +276,13 @@ class FeedService:
             
             hours_old_sql = "EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600"
             
+            # Nuevo algoritmo de trending mejorado:
+            # 1. Usa el engagement_score ya calculado que incluye el decaimiento logarítmico
+            # 2. Agrega un boost para posts con alta velocidad de engagement reciente
             trending_score_sql = f"""
                 (
-                    engagement_score / (1 + ({hours_old_sql} / 24))
+                    engagement_score * 0.8 + 
+                    (engagement_score / GREATEST(1, SQRT({hours_old_sql}))) * 0.2
                 )
             """
             
@@ -284,8 +290,9 @@ class FeedService:
                 is_public=True
             ).annotate(
                 hours_old=RawSQL(hours_old_sql, []),
-                trending_score=RawSQL(trending_score_sql, [])
-            ).select_related('author').prefetch_related('post_files').order_by('-trending_score')
+                trending_score=RawSQL(trending_score_sql, []),
+                comments_count_real=Count('comments', filter=models.Q(comments__is_deleted=False))
+            ).select_related('author').prefetch_related('post_files', 'comments').order_by('-trending_score')
             
             # Contar posts disponibles
             total_count = queryset.count()
