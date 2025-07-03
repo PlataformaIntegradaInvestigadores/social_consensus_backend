@@ -199,7 +199,6 @@ class JobsService:
             """
             
             queryset = Jobs.objects.filter(
-                status='active',
                 embedding__isnull=False
             ).annotate(
                 similarity=RawSQL(similarity_sql, []),
@@ -211,13 +210,13 @@ class JobsService:
             
         except Exception as e:
             logger.error(f"Error en recomendaciones vectoriales: {str(e)}")
-            return Jobs.objects.filter(status='active').order_by('-created_at')[:limit]
+            return Jobs.objects.all().order_by('-created_at')[:limit]
     
     def _get_basic_recommendations(self, user, limit: int) -> QuerySet:
         """
         Obtiene recomendaciones básicas cuando no hay embeddings disponibles
         """
-        base_queryset = Jobs.objects.filter(status='active')
+        base_queryset = Jobs.objects.all()
         
         # Combinar trabajos populares y recientes
         popular_weight = 0.6
@@ -264,19 +263,32 @@ class JobsService:
                 )
             """
             
+            # DEBUG: Verificar cuántos jobs hay en total
+            total_jobs = Jobs.objects.count()
+            logger.info(f"DEBUG: Total jobs en DB: {total_jobs}")
+            
             queryset = Jobs.objects.filter(
-                status='active',
                 created_at__gte=recent_date
             ).annotate(
                 trending_score=RawSQL(trending_score_sql, [])
             ).order_by('-trending_score')[:limit]
+            
+            logger.info(f"DEBUG: Jobs trending query count: {queryset.count()}")
+            
+            # Si no hay jobs recientes, mostrar todos los disponibles
+            if not queryset.exists():
+                logger.info("DEBUG: No hay jobs recientes, obteniendo todos")
+                queryset = Jobs.objects.all().annotate(
+                    trending_score=RawSQL(trending_score_sql, [])
+                ).order_by('-trending_score')[:limit]
+                logger.info(f"DEBUG: Jobs todos query count: {queryset.count()}")
             
             logger.info(f"Trabajos trending generados: {queryset.count()}")
             return queryset
             
         except Exception as e:
             logger.error(f"Error obteniendo trabajos trending: {str(e)}")
-            return Jobs.objects.filter(status='active').order_by('-view_count', '-created_at')[:limit]
+            return Jobs.objects.all().order_by('-view_count', '-created_at')[:limit]
     
     def semantic_search_jobs(self, query: str, filters: Dict[str, Any] = None, limit: int = 20, user=None) -> QuerySet:
         """
@@ -296,7 +308,6 @@ class JobsService:
             similarity_sql = f"(1 - (embedding <#> '{embedding_str}'))"
             
             queryset = Jobs.objects.filter(
-                status='active',
                 embedding__isnull=False
             )
             
@@ -333,8 +344,7 @@ class JobsService:
             Q(title__icontains=query) |
             Q(description__icontains=query) |
             Q(requirements__icontains=query) |
-            Q(company__company_name__icontains=query),
-            status='active'
+            Q(company__company_name__icontains=query)
         )
         
         # Aplicar filtros

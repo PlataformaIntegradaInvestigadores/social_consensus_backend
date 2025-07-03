@@ -536,29 +536,36 @@ class FeedService:
             logger.error(f"Error toggleando like en comentario: {str(e)}")
             return False
     
-    def search_posts_by_similarity(self, query: str, limit: int = 20, similarity_threshold: float = 0.3) -> List[FeedPost]:
+    def search_posts_by_similarity(self, query: str, limit: int = 20, similarity_threshold: float = 0.65) -> List[FeedPost]:
         """
-        Busca posts usando similitud vectorial semántica
+        Busca posts usando similitud vectorial semántica con máxima precisión
         
         Args:
             query: Texto de búsqueda
             limit: Número máximo de resultados
-            similarity_threshold: Umbral mínimo de similitud (0.0 a 1.0)
+            similarity_threshold: Umbral mínimo de similitud (0.0 a 1.0) - valor alto para mayor precisión
             
         Returns:
             Lista de posts ordenados por relevancia semántica
         """
         try:
+            # Limpiar y preprocesar el query de manera menos agresiva
+            cleaned_query = self._preprocess_search_query_conservative(query)
+            if not cleaned_query or len(cleaned_query.strip()) < 2:
+                logger.warning(f"Query muy corto o vacío después de limpieza: '{query}' -> '{cleaned_query}'")
+                return []
+            
             # Obtener embedding del query de búsqueda
-            query_embedding = self.get_embedding_from_microservice(query)
+            query_embedding = self.get_embedding_from_microservice(cleaned_query)
             
             if not query_embedding:
-                logger.warning(f"No se pudo generar embedding para query: {query}")
-                # Fallback a búsqueda básica de texto
+                logger.warning(f"No se pudo generar embedding para query: {cleaned_query}")
+                # Fallback muy limitado y estricto
                 return list(FeedPost.objects.filter(
                     is_public=True,
-                    content__icontains=query
-                ).order_by('-created_at')[:limit])
+                    content__icontains=cleaned_query
+                ).exclude(content__regex=r'^.{0,20}$')  # Excluir posts muy cortos
+                .order_by('-created_at')[:min(limit // 3, 5)])  # Muy pocos resultados de fallback
             
             # Convertir embedding a string para la consulta SQL
             embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
@@ -567,42 +574,52 @@ class FeedService:
             # (1 - (embedding <#> query_embedding)) da la similitud coseno
             similarity_sql = f"(1 - (embedding <#> '{embedding_str}'))"
             
-            # Query con similitud y score compuesto
+            # Score que prioriza casi completamente la similitud semántica
+            score_sql = f"""
+                (
+                    {similarity_sql} * 0.95 +  -- Máximo peso a similitud semántica
+                    (COALESCE(engagement_score, 0) / 1000.0) * 0.03 +  -- Engagement mínimo
+                    (1.0 / (1.0 + EXTRACT(EPOCH FROM (NOW() - created_at)) / 2592000.0)) * 0.02  -- Recencia mínima (30 días)
+                )
+            """
+            
+            # Query principal con filtros muy estrictos
             queryset = FeedPost.objects.filter(
                 is_public=True,
-                embedding__isnull=False  # Solo posts que tienen embedding
+                embedding__isnull=False,  # Solo posts que tienen embedding
+                content__isnull=False,    # Solo posts con contenido
+            ).exclude(
+                content__exact='',        # Excluir posts vacíos
+            ).exclude(
+                content__regex=r'^.{0,30}$'  # Excluir posts muy cortos (menos de 30 caracteres)
             ).annotate(
-                similarity=RawSQL(similarity_sql, [])
+                similarity=RawSQL(similarity_sql, []),
+                relevance_score=RawSQL(score_sql, [])
             ).filter(
-                similarity__gte=similarity_threshold
-            ).select_related('author').prefetch_related('post_files').order_by('-similarity')
+                similarity__gte=similarity_threshold  # Umbral alto por defecto
+            ).select_related('author').prefetch_related('post_files').order_by('-similarity', '-relevance_score')  # Priorizar similitud pura
             
             posts = list(queryset[:limit])
             
-            logger.info(f"Búsqueda vectorial para '{query}': {len(posts)} posts encontrados con similitud >= {similarity_threshold}")
+            logger.info(f"Búsqueda vectorial para '{cleaned_query}': {len(posts)} posts encontrados con similitud >= {similarity_threshold}")
             
-            # Si no encontramos suficientes resultados con alta similitud, 
-            # bajar el umbral y completar
-            if len(posts) < limit and similarity_threshold > 0.1:
+            # Solo si realmente no encontramos nada y el query es específico, bajar el umbral
+            if len(posts) == 0 and similarity_threshold > 0.5 and len(cleaned_query.split()) >= 2:
+                logger.info(f"Sin resultados con umbral alto, intentando con umbral medio para query específico: '{cleaned_query}'")
                 additional_posts = self.search_posts_by_similarity(
                     query=query, 
-                    limit=limit - len(posts), 
-                    similarity_threshold=0.1
+                    limit=min(limit, 10),  # Limitar aún más los resultados con umbral bajo
+                    similarity_threshold=0.5
                 )
-                
-                # Evitar duplicados
-                existing_ids = {post.id for post in posts}
-                posts.extend([post for post in additional_posts if post.id not in existing_ids])
+                posts.extend(additional_posts)
             
-            # Si aún no tenemos suficientes, hacer fallback a búsqueda de texto
-            if len(posts) < limit // 2:  # Si tenemos menos de la mitad de lo solicitado
-                logger.info(f"Pocos resultados vectoriales, complementando con búsqueda de texto")
+            # Solo fallback a texto si el query es muy simple y no hay resultados vectoriales
+            if len(posts) == 0 and len(cleaned_query.split()) == 1 and len(cleaned_query) > 4:
+                logger.info(f"Sin resultados vectoriales para query simple específico, búsqueda de texto limitada: '{cleaned_query}'")
                 text_search_posts = list(FeedPost.objects.filter(
                     is_public=True,
-                    content__icontains=query
-                ).exclude(
-                    id__in=[post.id for post in posts]
-                ).order_by('-created_at')[:limit - len(posts)])
+                    content__icontains=cleaned_query
+                ).order_by('-created_at')[:limit // 2])  # Limitar fallback
                 
                 posts.extend(text_search_posts)
             
@@ -610,11 +627,25 @@ class FeedService:
             
         except Exception as e:
             logger.error(f"Error en búsqueda vectorial: {str(e)}")
-            # Fallback completo a búsqueda básica
+            # Fallback mínimo con query limpio
+            cleaned_query = self._preprocess_search_query(query)
             return list(FeedPost.objects.filter(
                 is_public=True,
-                content__icontains=query
-            ).order_by('-created_at')[:limit])
+                content__icontains=cleaned_query
+            ).order_by('-created_at')[:limit // 2])  # Limitar resultados de fallback
+    
+    def _preprocess_search_query(self, query: str) -> str:
+        """
+        Preprocesa mínimamente el query - el microservicio ya hace el filtrado y limpieza
+        """
+        if not query:
+            return ""
+        
+        # Solo normalizar espacios múltiples y quitar espacios al inicio/final
+        import re
+        cleaned = re.sub(r'\s+', ' ', query.strip())
+        
+        return cleaned
 
 
 # Instancia global del servicio

@@ -23,8 +23,8 @@ class JobsView(APIView):
         user = self.request.user
         if hasattr(user, 'company_name'):  # Es una compañía
             return Jobs.objects.filter(company=user)
-        else:  # Es un usuario normal, solo ve trabajos activos
-            return Jobs.objects.filter(status='active')
+        else:  # Es un usuario normal, ve todos los trabajos
+            return Jobs.objects.all()
 
     def get(self, request, pk=None):
         if pk:
@@ -32,14 +32,10 @@ class JobsView(APIView):
             if not job:
                 return Response({'error': 'Trabajo no encontrado'}, status=status.HTTP_404_NOT_FOUND)
             
-            # Verificar permisos: compañías solo ven sus trabajos, usuarios ven trabajos activos
-            if hasattr(request.user, 'company_name'):
-                if job.company != request.user:
-                    return Response({'error': 'No tienes permisos para ver este trabajo'}, 
-                                  status=status.HTTP_403_FORBIDDEN)
-            elif job.status != 'active':
-                return Response({'error': 'Trabajo no disponible'}, 
-                              status=status.HTTP_404_NOT_FOUND)
+            # Verificar permisos: compañías solo ven sus trabajos
+            if hasattr(request.user, 'company_name') and job.company != request.user:
+                return Response({'error': 'No tienes permisos para ver este trabajo'}, 
+                              status=status.HTTP_403_FORBIDDEN)
                 
             serializer = JobsSerializer(job, context={'request': request})
             return Response(serializer.data)

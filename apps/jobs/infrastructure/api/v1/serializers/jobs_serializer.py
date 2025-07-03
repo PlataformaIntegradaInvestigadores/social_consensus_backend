@@ -13,7 +13,6 @@ class CompanyBasicSerializer(serializers.ModelSerializer):
 
 class JobsSerializer(serializers.ModelSerializer):
     company_info = CompanyBasicSerializer(source='company', read_only=True)
-    status_display = serializers.CharField(source='get_status_display_name', read_only=True)
     experience_display = serializers.CharField(source='get_experience_display_name', read_only=True)
     job_type_display = serializers.CharField(source='get_job_type_display_name', read_only=True)
     applications_count = serializers.SerializerMethodField()
@@ -25,8 +24,8 @@ class JobsSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'description', 'requirements', 'benefits', 
             'location', 'job_type', 'job_type_display', 'experience_level', 
-            'experience_display', 'salary_min', 'salary_max', 'status', 
-            'status_display', 'is_remote', 'application_deadline', 
+            'experience_display', 'salary_min', 'salary_max', 
+            'is_remote', 'application_deadline', 
             'created_at', 'updated_at', 'company', 'company_info', 
             'applications_count', 'has_applied', 'user_application'
         ]
@@ -79,7 +78,6 @@ class JobsSerializer(serializers.ModelSerializer):
 class JobsListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listados de jobs"""
     company_info = CompanyBasicSerializer(source='company', read_only=True)
-    status_display = serializers.CharField(source='get_status_display_name', read_only=True)
     job_type_display = serializers.CharField(source='get_job_type_display_name', read_only=True)
     has_applied = serializers.SerializerMethodField()
     
@@ -87,8 +85,8 @@ class JobsListSerializer(serializers.ModelSerializer):
         model = Jobs
         fields = [
             'id', 'title', 'location', 'job_type', 'job_type_display', 
-            'experience_level', 'salary_min', 'salary_max', 'status', 
-            'status_display', 'is_remote', 'created_at', 'company_info',
+            'experience_level', 'salary_min', 'salary_max', 
+            'is_remote', 'created_at', 'company_info',
             'has_applied'
         ]
     
@@ -105,7 +103,6 @@ class JobsListSerializer(serializers.ModelSerializer):
 class JobsCompanySerializer(serializers.ModelSerializer):
     """Serializer específico para empresas - incluye información de postulaciones"""
     company_info = CompanyBasicSerializer(source='company', read_only=True)
-    status_display = serializers.CharField(source='get_status_display_name', read_only=True)
     experience_display = serializers.CharField(source='get_experience_display_name', read_only=True)
     job_type_display = serializers.CharField(source='get_job_type_display_name', read_only=True)
     applications_count = serializers.SerializerMethodField()
@@ -116,8 +113,8 @@ class JobsCompanySerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'description', 'requirements', 'benefits', 
             'location', 'job_type', 'job_type_display', 'experience_level', 
-            'experience_display', 'salary_min', 'salary_max', 'status', 
-            'status_display', 'is_remote', 'application_deadline', 
+            'experience_display', 'salary_min', 'salary_max', 
+            'is_remote', 'application_deadline', 
             'created_at', 'updated_at', 'company_info', 
             'applications_count', 'recent_applications'
         ]
