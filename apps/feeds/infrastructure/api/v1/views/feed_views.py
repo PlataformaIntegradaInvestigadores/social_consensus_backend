@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db import models
+from django.contrib.auth import get_user_model
 
 from apps.feeds.domain.entities.feed_post import FeedPost
 from apps.feeds.domain.services.feed_service import FeedService
@@ -38,26 +39,69 @@ class FeedView(generics.GenericAPIView):
         feed_type = serializer.validated_data['feed_type']
         limit = serializer.validated_data['limit']
         cursor = serializer.validated_data.get('cursor')
+        author = serializer.validated_data.get('author')
         
-        # Get feed using service
-        feed_service = FeedService()
-        
-        if feed_type == 'personalized':
-            posts, has_next, next_cursor = feed_service.get_personalized_feed(
-                user=request.user,
-                limit=limit,
-                cursor=cursor
-            )
-        elif feed_type == 'trending':
-            posts, has_next, next_cursor = feed_service.get_trending_feed(
-                limit=limit,
-                cursor=cursor
-            )
-        else:  # latest
-            posts, has_next, next_cursor = feed_service.get_latest_feed(
-                limit=limit,
-                cursor=cursor
-            )
+        # Si se especifica un autor, filtrar por posts de ese usuario
+        if author:
+            try:
+                User = get_user_model()
+                author_user = User.objects.get(id=author)
+                
+                # Obtener posts del usuario específico
+                queryset = FeedPost.objects.filter(
+                    author=author_user,
+                    is_public=True
+                ).select_related('author').prefetch_related(
+                    'post_files', 'comments'
+                ).order_by('-created_at')
+                
+                # Apply cursor pagination if provided
+                if cursor:
+                    try:
+                        from datetime import datetime
+                        cursor_date = datetime.fromisoformat(cursor.replace('Z', '+00:00'))
+                        queryset = queryset.filter(created_at__lt=cursor_date)
+                    except (ValueError, TypeError):
+                        pass  # Invalid cursor, ignore
+                
+                # Get posts with limit + 1 to check if there's a next page
+                posts = list(queryset[:limit + 1])
+                has_next = len(posts) > limit
+                
+                if has_next:
+                    posts = posts[:limit]
+                
+                # Get next cursor
+                next_cursor = None
+                if has_next and posts:
+                    next_cursor = posts[-1].created_at.isoformat()
+                
+            except User.DoesNotExist:
+                # Usuario no existe, retornar lista vacía
+                posts = []
+                has_next = False
+                next_cursor = None
+                
+        else:
+            # Get feed using service (lógica original)
+            feed_service = FeedService()
+            
+            if feed_type == 'personalized':
+                posts, has_next, next_cursor = feed_service.get_personalized_feed(
+                    user=request.user,
+                    limit=limit,
+                    cursor=cursor
+                )
+            elif feed_type == 'trending':
+                posts, has_next, next_cursor = feed_service.get_trending_feed(
+                    limit=limit,
+                    cursor=cursor
+                )
+            else:  # latest
+                posts, has_next, next_cursor = feed_service.get_latest_feed(
+                    limit=limit,
+                    cursor=cursor
+                )
         
         # Serialize response
         post_serializer = FeedPostSerializer(

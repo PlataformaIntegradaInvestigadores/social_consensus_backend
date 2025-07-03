@@ -24,6 +24,7 @@ class FeedRequestSerializer(serializers.Serializer):
     )
     limit = serializers.IntegerField(min_value=1, max_value=50, default=20)
     cursor = serializers.CharField(required=False, allow_null=True)
+    author = serializers.CharField(required=False, allow_null=True)
     
     def validate(self, attrs):
         """Custom validation to handle both type and feed_type"""
