@@ -36,6 +36,9 @@ urlpatterns = [
     path('api/v1/', include('apps.jobs.infrastructure.api.v1.urls.jobs_urls')),
     path('api/v1/', include('apps.feeds.infrastructure.api.v1.urls')),
     # path('api/', include('apps.concensus.infrastructure.api.v1.urls.debate_url')),
+    
+    # Magic link authentication for testing
+    path('auth/', include('apps.custom_auth.magic_link_urls')),
 ]
 
 if settings.DEBUG:
