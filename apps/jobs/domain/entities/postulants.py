@@ -9,7 +9,7 @@ class Postulants(models.Model):
         ('reviewing', 'En revisión'),
         ('interviewed', 'Entrevistado'),
         ('accepted', 'Aceptado'),
-        ('rejected', 'Rechazado'),
+        ('rejected', 'Cancelado'),
         ('withdrawn', 'Retirado'),
     ]
     

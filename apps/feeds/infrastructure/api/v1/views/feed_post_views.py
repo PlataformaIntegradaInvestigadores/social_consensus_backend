@@ -107,7 +107,7 @@ class FeedPostDetailView(generics.RetrieveUpdateDestroyAPIView):
         if 'content' in serializer.validated_data:
             feed_service = FeedService()
             post = serializer.save()
-            feed_service._update_post_embedding(post)
+            feed_service.update_post_embedding(post.id)
     
     def perform_destroy(self, instance):
         """Delete post (author only)"""
