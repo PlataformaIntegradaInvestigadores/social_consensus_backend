@@ -28,8 +28,8 @@ class AuthorSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name']
-        read_only_fields = ['id', 'username', 'first_name', 'last_name']
+        fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture']
+        read_only_fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture']
 
 
 class FeedPostSerializer(serializers.ModelSerializer):
