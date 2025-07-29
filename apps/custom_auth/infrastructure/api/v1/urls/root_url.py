@@ -1,7 +1,11 @@
 from django.http import JsonResponse
 from django.urls import path, re_path
-from rest_framework_simplejwt.views import TokenRefreshView
 from apps.custom_auth.infrastructure.api.v1.views.group_views import GroupDeleteView, GroupDetailView, GroupLeaveView, RemoveMemberView, UserDetailViewtoGroup, UserGroupsListView
+from apps.custom_auth.infrastructure.api.v1.views.company_views import (
+    CompanyListView, CompanyUpdateView, CompanyTokenObtainPairView,
+    CompanyDetailView, CompanyProfileView, CompanyRegisterView
+)
+from apps.custom_auth.infrastructure.api.v1.views.company_choices_views import CompanyChoicesView
 from apps.custom_auth.views import *
 
 def test_view(request):
@@ -10,23 +14,33 @@ def test_view(request):
 
 
 urlpatterns = [
+     # URLs para usuarios (investigadores)
      path('token/', UserTokenObtainPairView.as_view(), name='token_obtain_pair'),
-     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+     path('token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
      path('register/', RegisterView.as_view(), name='register'),
      re_path(r'^users/(?P<pk>[a-zA-Z0-9]+)/$',
             UserDetailView.as_view(), name='user-detail'),
      re_path(r'^users/(?P<pk>[a-zA-Z0-9]+)/update/$',
             UserUpdateView.as_view(), name='user-update'),
      path('users/', UserListView.as_view(), name='user-list'),
+
+     # URLs para empresas
+     path('companies/token/', CompanyTokenObtainPairView.as_view(), name='company_token_obtain_pair'),
+     path('companies/register/', CompanyRegisterView.as_view(), name='company_register'),
+     path('companies/', CompanyListView.as_view(), name='company-list'),
+     path('companies/profile/', CompanyProfileView.as_view(), name='company-profile'),
+     path('companies/choices/', CompanyChoicesView.as_view(), name='company-choices'),
+     re_path(r'^companies/(?P<pk>[a-zA-Z0-9]+)/$',
+            CompanyDetailView.as_view(), name='company-detail'),
+     re_path(r'^companies/(?P<pk>[a-zA-Z0-9]+)/update/$',
+            CompanyUpdateView.as_view(), name='company-update'),
+
+     # URLs generales
      path('groups/', GroupListCreateView.as_view(), name='group-list-create'),
      path('profile-information/', ProfileInformationDetailView.as_view(),
          name='profile-information-detail'),
      path('profile-information/<str:user__id>/', PublicProfileInformationDetailView.as_view(),
          name='public-profile-information-detail'),
-     path('posts/', PostListView.as_view(), name='post-list'),
-     path('posts/create/', PostCreateView.as_view(), name='post-create'),
-     path('posts/<pk>/delete/', PostDeleteView.as_view(),
-         name='post-delete'),  # URL para eliminar post
      
      # Nueva ruta para listar grupos del usuario autenticado
      #path('test/user/groups/', UserGroupsListView.as_view(), name='user-groups-list'),

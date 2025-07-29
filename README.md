@@ -19,9 +19,7 @@ Este proyecto Django implementa un servicio de autorización y consenso para la 
    ```bash
    cd social_consensus_backend
    ```
-3. Renombra el archivo `.env.template` a `.env`. Completa las variables de entorno con los valores correspondientes.
-
-    ```bash
+3. Renombra el archivo `.env.template` a `.env`. Completa las variables de entorno con los valores correspondientes.    ```bash
     # Django settings
     DEBUG=True
     SECRET_KEY="your-secret-key"
@@ -37,6 +35,12 @@ Este proyecto Django implementa un servicio de autorización y consenso para la 
     REDIS_HOST=redis
     REDIS_PORT=6379
     REDIS_PASSWORD=your_redis_password
+      # Embedding Service settings
+    EMBEDDING_SERVICE_URL=http://localhost:8000
+    EMBEDDING_SERVICE_API_PREFIX=api/v1
+    
+    # CORS settings (comma-separated list)
+    CORS_ALLOWED_ORIGINS=http://localhost:4200,http://127.0.0.1:4200,http://localhost:8082,http://127.0.0.1:8082,https://centinela.epn.edu.ec
     ```
 
 4. Construye las imágenes y levanta los contenedores:

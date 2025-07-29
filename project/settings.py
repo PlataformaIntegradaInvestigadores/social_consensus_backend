@@ -43,11 +43,11 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'drf_spectacular',
     'rest_framework',
-    'channels',
-    'apps',
+    'channels',    'apps',
     'apps.concensus',
     'apps.custom_auth',
-
+    'apps.jobs',
+    'apps.feeds',
 ]
 # ada
 
@@ -72,11 +72,9 @@ ROOT_URLCONF = 'project.urls'
 CORS_ALLOW_CREDENTIALS = False
 
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:4200',
-    'http://127.0.0.1:4200',
-    'http://localhost:8082',
-    'http://127.0.0.1:8082',
-    'https://centinela.epn.edu.ec',
+    origin.strip() for origin in os.getenv('CORS_ALLOWED_ORIGINS', 
+    'http://localhost:4200,http://127.0.0.1:4200,http://localhost:8082,http://127.0.0.1:8082,https://centinela.epn.edu.ec'
+    ).split(',') if origin.strip()
 ]
 
 AUTHENTICATION_BACKENDS = (
@@ -112,6 +110,10 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD'),
         'HOST': os.getenv('DB_HOST'),
         'PORT': os.getenv('DB_PORT'),
+        'OPTIONS': {
+            # PostgreSQL specific options
+            'sslmode': 'prefer',
+        },
     }
 }
 
@@ -180,8 +182,11 @@ REST_FRAMEWORK = {
     # Configuración para Swagger
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'apps.custom_auth.authentication.DualUserJWTAuthentication',
     ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
 }
 
 # Configuración de DRF Spectacular
@@ -222,21 +227,37 @@ LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {
         'console': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
         },
     },
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'DEBUG',
             'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
         },
         'django.db.backends': {
             'handlers': ['console'],
-            'level': 'ERROR',
+            'level': 'DEBUG',
             'propagate': False,
+        },
+        'apps.custom_auth': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
         },
     },
 }
+
+# Configuración del microservicio de embeddings
+EMBEDDING_SERVICE_URL = os.getenv('EMBEDDING_SERVICE_URL', 'http://localhost:8001')
+
+# Configuración de vectores
+VECTOR_DIMENSIONS = 768  # Dimensiones del modelo de embeddings
 
