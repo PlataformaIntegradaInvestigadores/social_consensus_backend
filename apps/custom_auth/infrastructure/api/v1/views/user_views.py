@@ -3,9 +3,10 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from ..serializers.user_serializer import UserListSerializer, UserSerializer, RegisterSerializer, UserTokenObtainPairSerializer
 from apps.custom_auth.models import User
+from apps.custom_auth.authentication_mixins import NoAuthenticationRequired
 
 
 class UserListView(generics.ListAPIView):
@@ -43,6 +44,12 @@ class UserUpdateView(generics.UpdateAPIView):
 
 class UserTokenObtainPairView(TokenObtainPairView):
     serializer_class = UserTokenObtainPairSerializer
+    authentication_classes = [NoAuthenticationRequired]
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    """Vista personalizada para refresh token que no requiere autenticación."""
+    authentication_classes = [NoAuthenticationRequired]
 
 
 class UserDetailView(generics.RetrieveAPIView):
@@ -53,6 +60,8 @@ class UserDetailView(generics.RetrieveAPIView):
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = [NoAuthenticationRequired]
 
     def create(self, request, *args, **kwargs):
         """Crea un nuevo usuario y maneja los errores de validación."""

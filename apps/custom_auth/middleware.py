@@ -5,6 +5,7 @@ from jwt import decode as jwt_decode, ExpiredSignatureError, InvalidTokenError
 from django.conf import settings
 from asgiref.sync import sync_to_async
 from apps.custom_auth.domain.entities.user import User
+from apps.custom_auth.domain.entities.company import Company
 
 class JwtAuthMiddleware(BaseMiddleware):
     async def __call__(self, scope, receive, send):
@@ -14,8 +15,7 @@ class JwtAuthMiddleware(BaseMiddleware):
             scope['user'] = AnonymousUser()
             return await super().__call__(scope, receive, send)
 
-        try:
-            # Parsear el query_string
+        try:            # Parsear el query_string
             params = dict(item.split('=', 1) for item in query_string.split('&') if '=' in item)
             token = params.get('token', None)
 
@@ -25,8 +25,16 @@ class JwtAuthMiddleware(BaseMiddleware):
 
                 # Decodificar el token y obtener el usuario
                 payload = jwt_decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-                user = await sync_to_async(User.objects.get)(id=payload['user_id'])
-                scope['user'] = user
+                
+                # Determinar si es un usuario o una empresa
+                if 'user_id' in payload:
+                    user = await sync_to_async(User.objects.get)(id=payload['user_id'])
+                    scope['user'] = user
+                elif 'company_id' in payload:
+                    company = await sync_to_async(Company.objects.get)(id=payload['company_id'])
+                    scope['user'] = company
+                else:
+                    scope['user'] = AnonymousUser()
             else:
                 scope['user'] = AnonymousUser()
 
