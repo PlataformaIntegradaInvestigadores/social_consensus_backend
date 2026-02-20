@@ -23,7 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'scopus_id', 'institution',
-                  'website', 'investigation_camp', 'profile_picture', 'email_institution']
+                  'website', 'investigation_camp', 'interests', 'profile_picture', 'email_institution']
 
     def validate_website(self, value):
         if value and not value.startswith(('http://', 'https://')):
