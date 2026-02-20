@@ -122,10 +122,31 @@ class UserVectorService:
         if user.investigation_camp:
             profile_parts.append(f"Área de investigación: {user.investigation_camp}")
         
-        # TODO: Agregar posts recientes del usuario, likes, comentarios
-        # Esto se implementará cuando tengamos el módulo de feeds
+        # Agregar interacciones recientes para mejorar el cold start y adaptar el vector
+        try:
+            from apps.feeds.domain.entities.feed_post import FeedPost
+            from apps.feeds.domain.entities.like import Like
+            from django.contrib.contenttypes.models import ContentType
+            
+            # Últimos posts creados
+            recent_posts = FeedPost.objects.filter(author=user, is_public=True).order_by('-created_at')[:3]
+            if recent_posts:
+                posts_text = " ".join([p.content for p in recent_posts])
+                profile_parts.append(f"Escribe sobre: {posts_text}")
+                
+            # Últimos posts a los que dio like
+            post_type = ContentType.objects.get_for_model(FeedPost)
+            recent_likes = Like.objects.filter(user=user, content_type=post_type).order_by('-created_at')[:3]
+            if recent_likes:
+                liked_post_ids = [like.object_id for like in recent_likes]
+                liked_posts = FeedPost.objects.filter(id__in=liked_post_ids)
+                likes_text = " ".join([p.content for p in liked_posts])
+                profile_parts.append(f"Le interesa leer sobre: {likes_text}")
+                
+        except Exception as e:
+            logger.error(f"Error obteniendo interacciones para perfil de feed: {str(e)}")
         
-        return ". ".join(profile_parts) or "Investigador académico"
+        return ". ".join(profile_parts) or "Investigador académico ciencia tecnología"
     
     def update_user_job_embedding(self, user_id: int) -> bool:
         """
@@ -266,7 +287,7 @@ class UserVectorService:
             return []
         
         embedding_str = '[' + ','.join(map(str, job_embedding)) + ']'
-        similarity_sql = f"(1 - (job_recommendations_embedding <#> '{embedding_str}'))"
+        similarity_sql = f"(1 - (job_recommendations_embedding <=> '{embedding_str}'))"
         
         users = User.objects.filter(
             job_recommendations_embedding__isnull=False

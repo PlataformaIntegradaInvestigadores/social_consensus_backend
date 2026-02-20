@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from ..serializers.user_serializer import UserListSerializer, UserSerializer, RegisterSerializer, UserTokenObtainPairSerializer
 from apps.custom_auth.models import User
 from apps.custom_auth.authentication_mixins import NoAuthenticationRequired
+from apps.custom_auth.domain.services.user_vector_service import user_vector_service
 
 
 class UserListView(generics.ListAPIView):
@@ -38,6 +39,15 @@ class UserUpdateView(generics.UpdateAPIView):
                   request.data['profile_picture'])
         kwargs['partial'] = True
         response = super().update(request, *args, **kwargs)
+        
+        # Actualizar vectores si se modificaron campos relevantes
+        if any(field in request.data for field in ['investigation_camp', 'interests', 'institution']):
+            try:
+                user_vector_service.update_user_job_embedding(self.request.user.id)
+                user_vector_service.update_user_feed_embedding(self.request.user.id)
+            except Exception as e:
+                print(f"Error actualizando vectores: {e}")
+                
         print("Respuesta después de actualizar:", response.data)
         return response
 

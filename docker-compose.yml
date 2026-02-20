@@ -7,8 +7,10 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - .env
     environment:
@@ -25,6 +27,11 @@ services:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     command: postgres -c shared_preload_libraries=vector
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:6
@@ -33,6 +40,41 @@ services:
     volumes:
       - ./redis.conf:/usr/local/etc/redis/redis.conf  # Mapear el archivo redis.conf
     command: redis-server /usr/local/etc/redis/redis.conf  # Usar redis.conf al arrancar
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  celery_worker:
+    build: .
+    command: celery -A project worker -l info
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=project.settings
+
+  celery_beat:
+    build: .
+    command: celery -A project beat -l info
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=project.settings
 
 volumes:
   postgres_data:

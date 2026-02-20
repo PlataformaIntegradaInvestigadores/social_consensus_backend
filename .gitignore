@@ -12,11 +12,6 @@ __pycache__/
 # Archivos y directorios específicos del proyecto
 post_files/
 static/
-migrations/
-
-# Ignorar directorios de migraciones dentro del directorio apps
-apps/*/migrations/
-apps/*/migrations/*
 
 # Ignorar todo el contenido del directorio profile_pictures
 apps/media/profile_pictures/*

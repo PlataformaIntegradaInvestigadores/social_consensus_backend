@@ -95,12 +95,14 @@ class FeedView(generics.GenericAPIView):
             elif feed_type == 'trending':
                 posts, has_next, next_cursor = feed_service.get_trending_feed(
                     limit=limit,
-                    cursor=cursor
+                    cursor=cursor,
+                    exclude_user_id=request.user.id
                 )
             else:  # latest
                 posts, has_next, next_cursor = feed_service.get_latest_feed(
                     limit=limit,
-                    cursor=cursor
+                    cursor=cursor,
+                    exclude_user_id=request.user.id
                 )
         
         # Serialize response
@@ -184,10 +186,9 @@ class UserInteractionView(generics.GenericAPIView):
         # Record interaction using service
         feed_service = FeedService()
         feed_service.handle_user_interaction(
-            user=request.user,
-            post=post,
-            interaction_type=interaction_type,
-            metadata=metadata
+            user_id=str(request.user.id),
+            post_id=str(post.id),
+            interaction_type=interaction_type
         )
         
         return Response({
