@@ -261,6 +261,7 @@ EMBEDDING_SERVICE_URL = os.getenv('EMBEDDING_SERVICE_URL', 'http://localhost:800
 # Configuración de vectores
 VECTOR_DIMENSIONS = 768  # Dimensiones del modelo de embeddings
 
+<<<<<<< Updated upstream
 # Configuración de Celery
 CELERY_BROKER_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1"
 CELERY_RESULT_BACKEND = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1"
@@ -268,4 +269,9 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+=======
+# Token compartido para sincronizacion interna desde el microservicio
+# profile_identity_backend hacia las tablas legacy usadas por concensus/feed/jobs.
+PROFILE_SYNC_INTERNAL_TOKEN = os.getenv('PROFILE_SYNC_INTERNAL_TOKEN', '')
+>>>>>>> Stashed changes
 
