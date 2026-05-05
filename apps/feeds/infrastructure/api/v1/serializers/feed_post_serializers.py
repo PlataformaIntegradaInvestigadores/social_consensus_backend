@@ -1,4 +1,6 @@
 from rest_framework import serializers
+import json
+
 from apps.feeds.domain.entities.feed_post import FeedPost
 from apps.feeds.domain.entities.post_file import PostFile
 from apps.feeds.domain.entities.poll import Poll
@@ -32,10 +34,53 @@ class AuthorSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture']
 
 
+class FlexibleTagsField(serializers.Field):
+    """Accept tags from JSON payloads and multipart FormData."""
+
+    default_error_messages = {
+        'invalid': 'Tags must be a JSON array or a comma-separated string.',
+        'not_list': 'Tags must be a list of text values.',
+    }
+
+    def to_internal_value(self, data):
+        if data in (None, ''):
+            return []
+
+        if isinstance(data, str):
+            data = data.strip()
+            if not data:
+                return []
+            if data.startswith('['):
+                try:
+                    data = json.loads(data)
+                except json.JSONDecodeError:
+                    try:
+                        data = json.loads(data.replace('\\"', '"'))
+                    except json.JSONDecodeError:
+                        self.fail('invalid')
+            else:
+                data = [tag.strip() for tag in data.split(',') if tag.strip()]
+
+        if not isinstance(data, list):
+            self.fail('not_list')
+
+        cleaned_tags = []
+        for tag in data:
+            if not isinstance(tag, str):
+                self.fail('not_list')
+            normalized_tag = tag.strip()
+            if normalized_tag:
+                cleaned_tags.append(normalized_tag)
+        return cleaned_tags
+
+    def to_representation(self, value):
+        return value or []
+
+
 class FeedPostSerializer(serializers.ModelSerializer):
     """Basic feed post serializer"""
     author = AuthorSerializer(read_only=True)
-    files = PostFileSerializer(source='post_files', many=True, read_only=True)
+    files = serializers.SerializerMethodField()
     poll = PollSerializer(read_only=True)
     is_liked = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
@@ -93,9 +138,21 @@ class FeedPostSerializer(serializers.ModelSerializer):
             return obj.comments_count_real
         return obj.comments.filter(is_deleted=False).count()
 
+    def get_files(self, obj):
+        """Return only media files that still exist in storage."""
+        existing_files = []
+        for post_file in obj.post_files.all():
+            try:
+                if post_file.file and post_file.file.storage.exists(post_file.file.name):
+                    existing_files.append(post_file)
+            except OSError:
+                continue
+        return PostFileSerializer(existing_files, many=True, context=self.context).data
+
 
 class FeedPostCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating feed posts"""
+    tags = FlexibleTagsField(required=False, default=list)
     files = serializers.ListField(
         child=serializers.FileField(),
         required=False,
