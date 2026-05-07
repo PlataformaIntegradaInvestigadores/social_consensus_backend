@@ -12,9 +12,14 @@ __pycache__/
 # Archivos y directorios específicos del proyecto
 post_files/
 static/
+celerybeat-schedule
+celerybeat-schedule.*
 
 # Ignorar todo el contenido del directorio profile_pictures
 apps/media/profile_pictures/*
 
 # Pero no ignorar este archivo específico
 !apps/media/profile_pictures/default_profile_picture.png
+
+# Archivos multimedia subidos en ejecucion
+apps/media/feed_posts/*
