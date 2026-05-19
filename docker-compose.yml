@@ -17,7 +17,9 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=project.settings
     networks:
-      - centinela-net
+      centinela-net:
+        aliases:
+          - social-consensus-web
 
   db:
     image: pgvector/pgvector:pg16

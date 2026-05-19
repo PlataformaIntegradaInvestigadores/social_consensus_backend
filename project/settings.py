@@ -20,6 +20,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv(
     'SECRET_KEY')
+JWT_SIGNING_KEY = os.getenv('JWT_SIGNING_KEY', SECRET_KEY)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Convert string "True" from .env to boolean True
@@ -117,11 +118,6 @@ DATABASES = {
     }
 }
 
-print(os.getenv('DB_NAME'))
-print(os.getenv('DB_USER'))
-print(os.getenv('DB_PASSWORD'))
-print(os.getenv('DB_HOST'))
-print(os.getenv('DB_PORT'))
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -176,6 +172,9 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': os.getenv('JWT_ALGORITHM', 'HS256'),
+    'SIGNING_KEY': JWT_SIGNING_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 REST_FRAMEWORK = {

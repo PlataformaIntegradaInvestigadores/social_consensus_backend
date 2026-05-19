@@ -5,7 +5,7 @@ from apps.custom_auth.domain.entities.user import User
 
 class Topic(models.Model):
     name = models.CharField(max_length=100)
-    group=models.ForeignKey('Group', on_delete=models.CASCADE)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name
