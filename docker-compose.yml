@@ -4,6 +4,7 @@ services:
     command: daphne -b 0.0.0.0 -p 8000 project.asgi:application
     volumes:
       - .:/app
+    restart: unless-stopped
     ports:
       - "8000:8000"
     depends_on:
@@ -15,11 +16,14 @@ services:
       - .env
     environment:
       - DJANGO_SETTINGS_MODULE=project.settings
+    networks:
+      - centinela-net
 
   db:
     image: pgvector/pgvector:pg16
+    restart: unless-stopped
     ports:
-      - 5433:${DB_PORT}
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
@@ -32,19 +36,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - centinela-net
 
   redis:
     image: redis:6
+    restart: unless-stopped
     ports:
-      - 6379:${REDIS_PORT}
+      - "6379:6379"
     volumes:
-      - ./redis.conf:/usr/local/etc/redis/redis.conf  # Mapear el archivo redis.conf
-    command: redis-server /usr/local/etc/redis/redis.conf  # Usar redis.conf al arrancar
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - centinela-net
 
   celery_worker:
     build: .
@@ -60,6 +69,8 @@ services:
       - .env
     environment:
       - DJANGO_SETTINGS_MODULE=project.settings
+    networks:
+      - centinela-net
 
   celery_beat:
     build: .
@@ -75,6 +86,12 @@ services:
       - .env
     environment:
       - DJANGO_SETTINGS_MODULE=project.settings
+    networks:
+      - centinela-net
 
 volumes:
   postgres_data:
+
+networks:
+  centinela-net:
+    external: true
