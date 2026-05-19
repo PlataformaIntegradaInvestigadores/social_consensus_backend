@@ -37,9 +37,13 @@ class DualUserJWTAuthentication(JWTAuthentication):
                 except Company.DoesNotExist:
                     pass
             
-            # Verificar si el token contiene user_id (investigador)
-            elif 'user_id' in validated_token:
-                user_id = validated_token['user_id']
+            # Verificar si el token contiene user_id (investigador).
+            # Identity usa "sub" como claim estándar y mantiene "user_id" por
+            # compatibilidad con el frontend, así que aceptamos ambos.
+            else:
+                user_id = validated_token.get('user_id') or validated_token.get('sub')
+                if not user_id:
+                    return AnonymousUser()
                 try:
                     user = User.objects.get(id=user_id)
                     if user.is_active:
