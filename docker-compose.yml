@@ -59,6 +59,7 @@ services:
 
   celery_worker:
     build: .
+    restart: unless-stopped
     command: celery -A project worker -l info
     volumes:
       - .:/app
@@ -76,6 +77,7 @@ services:
 
   celery_beat:
     build: .
+    restart: unless-stopped
     command: celery -A project beat -l info
     volumes:
       - .:/app
