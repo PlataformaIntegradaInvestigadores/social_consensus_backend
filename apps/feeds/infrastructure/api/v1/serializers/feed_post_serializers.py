@@ -8,9 +8,31 @@ from apps.custom_auth.domain.entities.user import User
 from .poll_serializers import PollSerializer
 
 
+class RelativeFileField(serializers.FileField):
+    def to_representation(self, value):
+        if not value:
+            return None
+        try:
+            return value.url
+        except ValueError:
+            return None
+
+
+class RelativeImageField(serializers.ImageField):
+    def to_representation(self, value):
+        if not value:
+            return None
+        try:
+            return value.url
+        except ValueError:
+            return None
+
+
 class PostFileSerializer(serializers.ModelSerializer):
     """Serializer for post file attachments"""
-    
+
+    file = RelativeFileField(read_only=True)
+
     class Meta:
         model = PostFile
         fields = [
@@ -27,7 +49,9 @@ class PostFileSerializer(serializers.ModelSerializer):
 
 class AuthorSerializer(serializers.ModelSerializer):
     """Minimal user serializer for post authors"""
-    
+
+    profile_picture = RelativeImageField(read_only=True)
+
     class Meta:
         model = User
         fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture']
