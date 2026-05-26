@@ -26,8 +26,9 @@ JWT_SIGNING_KEY = os.getenv('JWT_SIGNING_KEY', SECRET_KEY)
 # Convert string "True" from .env to boolean True
 DEBUG = os.getenv('DEBUG') == 'True'
 
-ALLOWED_HOSTS = ["*"]
-# ALLOWED_HOSTS = ['centinela.epn.edu.ec', '172.28.36.130']
+ALLOWED_HOSTS = [
+    host.strip() for host in os.getenv('ALLOWED_HOSTS', '*').split(',') if host.strip()
+]
 
 
 # Application definition
