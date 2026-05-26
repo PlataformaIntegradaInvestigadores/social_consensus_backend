@@ -60,6 +60,13 @@ Thumbs.db
 *~
 
 # Archivos de desarrollo y debugging
+.env
+.env*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
 .env.*
 *.env
 
@@ -74,3 +81,14 @@ celerybeat-schedule
 build/
 dist/
 *.egg-info/
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+*.dump
+*.backup
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
+.dockerignore
+evidencias/

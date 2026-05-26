@@ -8,6 +8,9 @@ ENV PYTHONUNBUFFERED=1
 # Establecer el directorio de trabajo en el contenedor
 WORKDIR /app
 
+RUN groupadd --gid 1000 appuser \
+    && useradd --uid 1000 --gid appuser --create-home --shell /usr/sbin/nologin appuser
+
 # Instalar dependencias del sistema necesarias (ej. para compilar psycopg2)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev build-essential \
@@ -19,6 +22,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar el resto del código fuente del proyecto
 COPY . .
+RUN chown -R appuser:appuser /app
+
+USER appuser
 
 # Comando para ejecutar el servidor
 CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "project.asgi:application"]
