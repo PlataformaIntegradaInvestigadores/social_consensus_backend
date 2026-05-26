@@ -40,11 +40,11 @@ services:
       - postgres_data:/var/lib/postgresql/data/
     environment:
       - POSTGRES_DB=${DB_NAME:-centinela_social}
-      - POSTGRES_USER=${DB_USER:-centinela_social_app}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-change-me-strong-db-password}
+      - POSTGRES_USER=${DB_ADMIN_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_ADMIN_PASSWORD:-change-me-strong-db-admin-password}
     command: postgres -c shared_preload_libraries=vector
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-centinela_social_app} -d ${DB_NAME:-centinela_social}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_ADMIN_USER:-postgres} -d ${DB_NAME:-centinela_social}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -60,9 +60,14 @@ services:
       - "6379"
     volumes:
       - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
-    command: redis-server /usr/local/etc/redis/redis.conf
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-change-me-strong-redis-password}
+    command:
+      - /bin/sh
+      - -c
+      - exec redis-server /usr/local/etc/redis/redis.conf --requirepass "$${REDIS_PASSWORD}"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", 'redis-cli -a "$${REDIS_PASSWORD}" ping | grep PONG']
       interval: 10s
       timeout: 5s
       retries: 5
