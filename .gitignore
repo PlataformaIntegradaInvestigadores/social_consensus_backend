@@ -1,5 +1,6 @@
 # Entornos virtuales
 .env
+.env_produccion*
 venv/
 env/
 myenv/
