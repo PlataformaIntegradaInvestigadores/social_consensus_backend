@@ -9,18 +9,17 @@ from django.db.models import QuerySet, F, Q, Count
 from django.db.models.expressions import RawSQL
 from django.conf import settings
 from django.utils import timezone
-from django.contrib.auth import get_user_model
 
 # Importar modelos del feed
 from apps.feeds.domain.entities.feed_post import FeedPost
 from apps.feeds.domain.entities.comment import Comment
 from apps.feeds.domain.entities.like import Like
+from apps.custom_auth.identity_principal import ref_from_snapshot, snapshot_from_principal
 
 # Importar servicio de vectores de usuario
 from apps.custom_auth.domain.services.user_vector_service import user_vector_service
 
 logger = logging.getLogger(__name__)
-User = get_user_model()
 
 
 class FeedService:
@@ -85,17 +84,16 @@ class FeedService:
             Instancia del post creado o None si hay error
         """
         try:
-            # Determinar el autor
             if author:
-                author_instance = author
                 author_id = str(author.id)
             elif author_id:
-                author_instance = User.objects.get(id=author_id)
+                author = ref_from_snapshot(str(author_id), {'id': str(author_id)})
             else:
                 raise ValueError("Debe proporcionar author o author_id")
-              # Crear el post
+
             post = FeedPost.objects.create(
-                author=author_instance,
+                author_identity_id=str(author_id),
+                author_snapshot=snapshot_from_principal(author),
                 content=content,
                 tags=tags or [],
                 is_public=is_public
@@ -111,12 +109,9 @@ class FeedService:
                 content=content
             )
             
-            logger.info(f"Post creado: {post.id} por {author_instance.username}")
+            logger.info(f"Post creado: {post.id} por {author_id}")
             return post
             
-        except User.DoesNotExist:
-            logger.error(f"Usuario {author_id} no encontrado")
-            return None
         except Exception as e:
             logger.error(f"Error creando post: {str(e)}")
             return None
@@ -161,9 +156,11 @@ class FeedService:
             text_parts.append("Tags: " + ", ".join(post.tags))
         
         # Agregar información del autor
-        text_parts.append(f"Autor: {post.author.first_name} {post.author.last_name}")
-        if post.author.investigation_camp:
-            text_parts.append(f"Campo: {post.author.investigation_camp}")
+        author_name = post.author.get_full_name() or post.author.username or post.author_identity_id
+        text_parts.append(f"Autor: {author_name}")
+        investigation_camp = post.author_snapshot.get('investigation_camp')
+        if investigation_camp:
+            text_parts.append(f"Campo: {investigation_camp}")
         
         return ". ".join(text_parts)
     
@@ -172,19 +169,15 @@ class FeedService:
         Obtiene feed personalizado basado en el embedding del usuario
         """
         try:
-            # Permitir usar tanto user_id como objeto user
             if user:
-                user_obj = user
-                user_id = user.id
-            else:
-                user_obj = User.objects.get(id=user_id)
+                user_id = str(user.id)
             
             logger.info(f"Obteniendo feed personalizado para usuario {user_id}")
-            
-            if user_obj.feed_recommendations_embedding is None:
-                # Si el usuario no tiene embedding, retornar feed trending
-                logger.info(f"Usuario {user_id} sin embedding, retornando feed trending")
-                return self.get_trending_feed(limit, cursor, exclude_user_id=user_id)
+
+            # La identidad canonica ya no vive en social_consensus_backend. Mientras
+            # profile_identity_backend expone embeddings/perfil de intereses por API,
+            # se evita consultar tablas locales de usuario y se usa feed trending.
+            return self.get_trending_feed(limit, cursor, exclude_user_id=user_id)
             
             # Contar posts disponibles
             total_posts = FeedPost.objects.filter(is_public=True).count()
@@ -214,7 +207,7 @@ class FeedService:
                 is_public=True,
                 embedding__isnull=False
             ).exclude(
-                author_id=user_id
+                author_identity_id=user_id
             ).annotate(
                 similarity=RawSQL(similarity_sql, []),
                 hours_old=RawSQL(hours_old_sql, []),
@@ -222,7 +215,7 @@ class FeedService:
                 comments_count_real=models.Count('comments', filter=models.Q(comments__is_deleted=False))
             ).filter(
                 similarity__gte=0.1  # Umbral más bajo y permisivo
-            ).select_related('author').prefetch_related('post_files', 'comments').order_by('-recommendation_score')
+            ).prefetch_related('post_files', 'comments').order_by('-recommendation_score')
             
             # Aplicar cursor si se proporciona
             if cursor:
@@ -263,9 +256,6 @@ class FeedService:
                 logger.info(f"Feed personalizado con embedding: {len(posts_with_embedding)} posts")
                 return posts_with_embedding, has_next, next_cursor
             
-        except User.DoesNotExist:
-            logger.error(f"Usuario {user_id} no encontrado")
-            return [], False, None
         except Exception as e:
             logger.error(f"Error obteniendo feed personalizado: {str(e)}")
             import traceback
@@ -297,13 +287,13 @@ class FeedService:
             
             # Excluir posts propios del usuario si se especifica
             if exclude_user_id:
-                queryset = queryset.exclude(author_id=exclude_user_id)
+                queryset = queryset.exclude(author_identity_id=str(exclude_user_id))
             
             queryset = queryset.annotate(
                 hours_old=RawSQL(hours_old_sql, []),
                 trending_score=RawSQL(trending_score_sql, []),
                 comments_count_real=Count('comments', filter=models.Q(comments__is_deleted=False))
-            ).select_related('author').prefetch_related('post_files', 'comments').order_by('-trending_score')
+            ).prefetch_related('post_files', 'comments').order_by('-trending_score')
             
             # Contar posts disponibles
             total_count = queryset.count()
@@ -369,12 +359,18 @@ class FeedService:
         except Exception as e:
             logger.error(f"Error manejando interacción: {str(e)}")
     
-    def create_comment(self, author_id: str, post_id: str, content: str, parent_comment_id: str = None) -> Optional[Comment]:
+    def create_comment(
+        self,
+        author_id: str,
+        post_id: str,
+        content: str,
+        parent_comment_id: str = None,
+        author_snapshot: dict = None,
+    ) -> Optional[Comment]:
         """
         Crea un comentario en un post
         """
         try:
-            author = User.objects.get(id=author_id)
             post = FeedPost.objects.get(id=post_id)
             
             parent_comment = None
@@ -389,7 +385,8 @@ class FeedService:
             # Crear comentario
             comment = Comment.objects.create(
                 post=post,
-                author=author,
+                author_identity_id=str(author_id),
+                author_snapshot=author_snapshot or {'id': str(author_id)},
                 parent_comment=parent_comment,
                 content=content
             )
@@ -403,10 +400,10 @@ class FeedService:
                 content=content
             )
             
-            logger.info(f"Comentario creado: {comment.id} por {author.username}")
+            logger.info(f"Comentario creado: {comment.id} por {author_id}")
             return comment
             
-        except (User.DoesNotExist, FeedPost.DoesNotExist, Comment.DoesNotExist) as e:
+        except (FeedPost.DoesNotExist, Comment.DoesNotExist) as e:
             logger.error(f"Objeto no encontrado: {str(e)}")
             return None
         except Exception as e:
@@ -450,7 +447,7 @@ class FeedService:
             
             # Excluir posts propios del usuario si se especifica
             if exclude_user_id:
-                queryset = queryset.exclude(author_id=exclude_user_id)
+                queryset = queryset.exclude(author_identity_id=str(exclude_user_id))
             
             queryset = queryset.order_by('-created_at')
             
@@ -500,7 +497,7 @@ class FeedService:
                 queryset = queryset.filter(tags__overlap=filters['tags'])
             
             if filters.get('author_ids'):
-                queryset = queryset.filter(author_id__in=filters['author_ids'])
+                queryset = queryset.filter(author_identity_id__in=[str(author_id) for author_id in filters['author_ids']])
             
             if filters.get('date_from'):
                 queryset = queryset.filter(created_at__gte=filters['date_from'])
@@ -727,7 +724,6 @@ class FeedService:
                     relevance_score=RawSQL(score_sql, []),
                 )
                 .filter(similarity__gte=similarity_threshold)
-                .select_related("author")
                 .prefetch_related("post_files")
                 .order_by("-relevance_score")
             )

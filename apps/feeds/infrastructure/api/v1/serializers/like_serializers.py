@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from apps.feeds.domain.entities.like import Like
-from apps.custom_auth.domain.entities.user import User
 
 
 class LikeSerializer(serializers.ModelSerializer):
@@ -35,7 +34,7 @@ class LikeSerializer(serializers.ModelSerializer):
 class LikeToggleSerializer(serializers.Serializer):
     """Serializer for toggling likes"""
     content_type = serializers.CharField()
-    object_id = serializers.IntegerField()
+    object_id = serializers.UUIDField()
     
     def validate_content_type(self, value):
         """Validate content type"""
@@ -61,8 +60,6 @@ class LikeToggleSerializer(serializers.Serializer):
     
     def validate_object_id(self, value):
         """Validate object ID"""
-        if value <= 0:
-            raise serializers.ValidationError("Object ID must be positive")
         return value
     
     def validate(self, attrs):

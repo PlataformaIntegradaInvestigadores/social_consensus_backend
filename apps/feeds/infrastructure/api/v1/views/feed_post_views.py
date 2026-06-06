@@ -33,7 +33,7 @@ class FeedPostListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         """Get user's posts"""
         return FeedPost.objects.filter(
-            author=self.request.user
+            author_identity_id=str(self.request.user.id)
         ).order_by('-created_at')
     
     def get_serializer_class(self):
@@ -43,7 +43,6 @@ class FeedPostListCreateView(generics.ListCreateAPIView):
     
     def perform_create(self, serializer):
         """Create post with author"""
-        # Set author before saving
         serializer.validated_data['author'] = self.request.user
         
         # El serializer se encarga de crear el post con archivos y embeddings
@@ -53,7 +52,7 @@ class FeedPostListCreateView(generics.ListCreateAPIView):
         feed_service = FeedService()
         feed_service.update_post_embedding(post.id)
         
-        logger.info(f"Post creado: {post.id} por {self.request.user.username}")
+        logger.info(f"Post creado: {post.id} por {self.request.user}")
         
     def create(self, request, *args, **kwargs):
         """Create post and return full representation"""
@@ -81,7 +80,7 @@ class FeedPostDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        return FeedPost.objects.select_related('author').prefetch_related('post_files', 'comments')
+        return FeedPost.objects.prefetch_related('post_files', 'comments')
     
     def get_object(self):
         """Get post and record view interaction"""
@@ -100,7 +99,7 @@ class FeedPostDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def perform_update(self, serializer):
         """Update post (author only)"""
-        if serializer.instance.author != self.request.user:
+        if serializer.instance.author_identity_id != str(self.request.user.id):
             raise permissions.PermissionDenied("You can only edit your own posts")
         
         # Update embedding if content changed
@@ -111,7 +110,7 @@ class FeedPostDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def perform_destroy(self, instance):
         """Delete post (author only)"""
-        if instance.author != self.request.user:
+        if instance.author_identity_id != str(self.request.user.id):
             raise permissions.PermissionDenied("You can only delete your own posts")
         instance.delete()
 
@@ -132,14 +131,14 @@ class FeedPostFileUploadView(generics.CreateAPIView):
         post = get_object_or_404(FeedPost, id=post_id)
         
         # Check ownership
-        if post.author != request.user:
+        if post.author_identity_id != str(request.user.id):
             return Response(
                 {"error": "You can only add files to your own posts"},
                 status=status.HTTP_403_FORBIDDEN
             )
         
         # Check file limit
-        current_files = post.files.count()
+        current_files = post.post_files.count()
         new_files = request.FILES.getlist('files', [])
         
         if current_files + len(new_files) > 10:
@@ -218,8 +217,8 @@ class FeedPostSearchView(generics.ListAPIView):
             if tags:
                 qs = qs.filter(tags__overlap=tags)
             if author:
-                qs = qs.filter(author__username__icontains=author)
-            posts = list(qs.select_related('author').order_by('-created_at')[:limit])
+                qs = qs.filter(author_snapshot__username__icontains=author)
+            posts = list(qs.order_by('-created_at')[:limit])
         
         # ── Serialización con scores de búsqueda ──
         serializer = self.get_serializer(posts, many=True)
@@ -251,7 +250,7 @@ class FeedPostStatsView(generics.RetrieveAPIView):
         post = get_object_or_404(FeedPost, id=post_id)
         
         # Check if user can view stats (author only for now)
-        if post.author != request.user:
+        if post.author_identity_id != str(request.user.id):
             return Response(
                 {"error": "You can only view stats for your own posts"},
                 status=status.HTTP_403_FORBIDDEN
@@ -264,7 +263,7 @@ class FeedPostStatsView(generics.RetrieveAPIView):
             'views_count': post.views_count,
             'shares_count': post.shares_count,
             'engagement_score': post.engagement_score,
-            'files_count': post.files.count(),
+            'files_count': post.post_files.count(),
             'created_at': post.created_at,
             'last_interaction': post.metadata.get('last_interaction'),
         }

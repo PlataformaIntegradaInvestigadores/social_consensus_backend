@@ -34,13 +34,6 @@ def setup_periodic_tasks(sender, **kwargs):
         name='update missing post embeddings every 15 minutes'
     )
 
-    # Ejecutar cada 15 minutos para buscar usuarios sin embeddings
-    sender.add_periodic_task(
-        crontab(minute='*/15'),
-        update_missing_user_embeddings_task.s(),
-        name='update missing user embeddings every 15 minutes'
-    )
-
 @app.task
 def update_missing_job_embeddings_task():
     from django.core.management import call_command
@@ -53,8 +46,7 @@ def update_missing_post_embeddings_task():
 
 @app.task
 def update_missing_user_embeddings_task():
-    from django.core.management import call_command
-    call_command('update_user_embeddings', batch_size=50)
+    return "retired: user embeddings are owned by profile_identity_backend"
 
 @app.task(bind=True, ignore_result=True)
 def debug_task(self):

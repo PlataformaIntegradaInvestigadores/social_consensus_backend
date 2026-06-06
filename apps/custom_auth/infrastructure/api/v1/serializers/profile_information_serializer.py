@@ -1,8 +1,4 @@
-from rest_framework import serializers
-from apps.custom_auth.models import ProfileInformation
+from apps.custom_auth.infrastructure.api.v1.serializers.user_serializer import RetiredIdentitySerializer
 
 
-class ProfileInformationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProfileInformation
-        fields = ['about_me', 'disciplines', 'contact_info']
+ProfileInformationSerializer = RetiredIdentitySerializer

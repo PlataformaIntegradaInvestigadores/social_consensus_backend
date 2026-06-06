@@ -53,7 +53,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('cover_letter', models.TextField(blank=True, null=True, verbose_name='Carta de presentación')),
                 ('resume_file', models.FileField(blank=True, null=True, upload_to='resumes/', verbose_name='Archivo de CV')),
-                ('status', models.CharField(choices=[('pending', 'Pendiente'), ('reviewing', 'En revisión'), ('interviewed', 'Entrevistado'), ('accepted', 'Aceptado'), ('rejected', 'Rechazado'), ('withdrawn', 'Retirado')], default='pending', max_length=20, verbose_name='Estado')),
+                ('status', models.CharField(choices=[('pending', 'Pendiente'), ('reviewing', 'En revisión'), ('interviewed', 'Entrevistado'), ('accepted', 'Aceptado'), ('rejected', 'Cancelado'), ('withdrawn', 'Retirado')], default='pending', max_length=20, verbose_name='Estado')),
                 ('notes', models.TextField(blank=True, null=True, verbose_name='Notas del reclutador')),
                 ('applied_at', models.DateTimeField(auto_now_add=True, verbose_name='Fecha de aplicación')),
                 ('updated_at', models.DateTimeField(auto_now=True, verbose_name='Fecha de actualización')),
