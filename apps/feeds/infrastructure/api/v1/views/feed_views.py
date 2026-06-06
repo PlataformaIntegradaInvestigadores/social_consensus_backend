@@ -5,7 +5,6 @@ from django.shortcuts import get_object_or_404
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db import models
-from django.contrib.auth import get_user_model
 
 from apps.feeds.domain.entities.feed_post import FeedPost
 from apps.feeds.domain.services.feed_service import FeedService
@@ -44,14 +43,13 @@ class FeedView(generics.GenericAPIView):
         # Si se especifica un autor, filtrar por posts de ese usuario
         if author:
             try:
-                User = get_user_model()
-                author_user = User.objects.get(id=author)
+                author_user = str(author)
                 
                 # Obtener posts del usuario específico
                 queryset = FeedPost.objects.filter(
-                    author=author_user,
+                    author_identity_id=author_user,
                     is_public=True
-                ).select_related('author').prefetch_related(
+                ).prefetch_related(
                     'post_files', 'comments'
                 ).order_by('-created_at')
                 
@@ -76,7 +74,7 @@ class FeedView(generics.GenericAPIView):
                 if has_next and posts:
                     next_cursor = posts[-1].created_at.isoformat()
                 
-            except User.DoesNotExist:
+            except Exception:
                 # Usuario no existe, retornar lista vacía
                 posts = []
                 has_next = False
@@ -272,7 +270,7 @@ def user_feed_stats(request):
     user = request.user
     
     # Get user's posts
-    user_posts = FeedPost.objects.filter(author=user)
+    user_posts = FeedPost.objects.filter(author_identity_id=str(user.id))
     
     # Calculate stats
     stats = {
@@ -354,8 +352,8 @@ class UserPostsView(generics.ListAPIView):
         """Get current user's posts"""
         user = self.request.user
         queryset = FeedPost.objects.filter(
-            author=user
-        ).select_related('author').prefetch_related(
+            author_identity_id=str(user.id)
+        ).prefetch_related(
             'post_files', 'comments'
         ).order_by('-created_at')
         
@@ -394,7 +392,7 @@ class UserPostsView(generics.ListAPIView):
         serializer = self.get_serializer(posts, many=True)
         
         # Calculate total posts count for user
-        total_count = FeedPost.objects.filter(author=request.user).count()
+        total_count = FeedPost.objects.filter(author_identity_id=str(request.user.id)).count()
         
         response_data = {
             'posts': serializer.data,

@@ -1,13 +1,19 @@
 from rest_framework import serializers
+
 from apps.concensus.domain.entities.debate_message import Message
 
+
 class MessageSerializer(serializers.ModelSerializer):
-    user = serializers.CharField(source='user.username')  # Devuelve el username en lugar del ID
+    user = serializers.CharField(source='user.username', read_only=True)
     replies = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
-        fields = ['id', 'user', 'text', 'posture', 'created_at', 'parent', 'replies']
+        fields = [
+            'id', 'user', 'user_identity_id', 'user_snapshot',
+            'group_identity_id', 'group_snapshot', 'text', 'posture',
+            'created_at', 'parent', 'replies'
+        ]
 
     def get_replies(self, obj):
         replies = obj.replies.all()

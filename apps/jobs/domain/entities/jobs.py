@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
 from pgvector.django import VectorField
-from apps.custom_auth.domain.entities.company import Company
+from apps.jobs.domain.entities.company import Company
 
 
 class Jobs(models.Model):

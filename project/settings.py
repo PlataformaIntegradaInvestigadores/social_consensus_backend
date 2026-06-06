@@ -161,8 +161,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 
 
-AUTH_USER_MODEL = 'custom_auth.User'
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
@@ -272,4 +270,7 @@ CELERY_TIMEZONE = TIME_ZONE
 # Token compartido para sincronizacion interna desde el microservicio
 # profile_identity_backend hacia las tablas legacy usadas por concensus/feed/jobs.
 PROFILE_SYNC_INTERNAL_TOKEN = os.getenv('PROFILE_SYNC_INTERNAL_TOKEN', '')
+
+# Fuente canonica de identidad usada por social para resolver snapshots de autor.
+PROFILE_IDENTITY_BASE_URL = os.getenv('PROFILE_IDENTITY_BASE_URL', 'http://profile-identity-web:8002')
 

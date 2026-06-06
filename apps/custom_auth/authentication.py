@@ -1,7 +1,8 @@
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.contrib.auth.models import AnonymousUser
-from apps.custom_auth.models import User, Company
+from apps.custom_auth.identity_principal import principal_from_token
+from apps.jobs.domain.entities.company import Company
 
 
 class DualUserJWTAuthentication(JWTAuthentication):
@@ -41,15 +42,9 @@ class DualUserJWTAuthentication(JWTAuthentication):
             # Identity usa "sub" como claim estándar y mantiene "user_id" por
             # compatibilidad con el frontend, así que aceptamos ambos.
             else:
-                user_id = validated_token.get('user_id') or validated_token.get('sub')
-                if not user_id:
-                    return AnonymousUser()
-                try:
-                    user = User.objects.get(id=user_id)
-                    if user.is_active:
-                        return user
-                except User.DoesNotExist:
-                    pass
+                principal = principal_from_token(validated_token)
+                if principal:
+                    return principal
             
             # Si no se encuentra ni usuario ni empresa, devolver usuario anónimo
             return AnonymousUser()

@@ -4,7 +4,11 @@ import json
 from apps.feeds.domain.entities.feed_post import FeedPost
 from apps.feeds.domain.entities.post_file import PostFile
 from apps.feeds.domain.entities.poll import Poll
-from apps.custom_auth.domain.entities.user import User
+from apps.custom_auth.identity_profile_client import (
+    get_identity_user_snapshot,
+    merge_identity_snapshot,
+)
+from apps.custom_auth.identity_principal import snapshot_from_principal
 from .poll_serializers import PollSerializer
 
 
@@ -47,15 +51,14 @@ class PostFileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'file_size', 'original_filename', 'uploaded_at']
 
 
-class AuthorSerializer(serializers.ModelSerializer):
+class AuthorSerializer(serializers.Serializer):
     """Minimal user serializer for post authors"""
 
-    profile_picture = RelativeImageField(read_only=True)
-
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture']
-        read_only_fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture']
+    id = serializers.CharField(read_only=True)
+    username = serializers.CharField(read_only=True, allow_blank=True)
+    first_name = serializers.CharField(read_only=True, allow_blank=True)
+    last_name = serializers.CharField(read_only=True, allow_blank=True)
+    profile_picture = serializers.CharField(read_only=True, allow_blank=True)
 
 
 class FlexibleTagsField(serializers.Field):
@@ -103,7 +106,7 @@ class FlexibleTagsField(serializers.Field):
 
 class FeedPostSerializer(serializers.ModelSerializer):
     """Basic feed post serializer"""
-    author = AuthorSerializer(read_only=True)
+    author = serializers.SerializerMethodField()
     files = serializers.SerializerMethodField()
     poll = PollSerializer(read_only=True)
     is_liked = serializers.SerializerMethodField()
@@ -141,6 +144,18 @@ class FeedPostSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
     
+    def get_author(self, obj):
+        request = self.context.get('request')
+        authorization = request.headers.get('Authorization', '') if request else ''
+        cache = self.context.setdefault('identity_user_cache', {})
+        identity_payload = get_identity_user_snapshot(
+            obj.author_identity_id,
+            authorization_header=authorization,
+            cache=cache,
+        )
+        snapshot = merge_identity_snapshot(obj.author_snapshot, identity_payload)
+        return AuthorSerializer(snapshot).data
+
     def get_is_liked(self, obj):
         """Check if current user has liked this post"""
         request = self.context.get('request')
@@ -150,7 +165,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
             
             content_type = ContentType.objects.get_for_model(obj)
             return Like.objects.filter(
-                user=request.user,
+                user_identity_id=str(request.user.id),
                 content_type=content_type,
                 object_id=obj.id
             ).exists()
@@ -284,9 +299,24 @@ class FeedPostCreateSerializer(serializers.ModelSerializer):
         
         files_data = validated_data.pop('files', [])
         poll_data = validated_data.pop('poll_data', None)
+        author = validated_data.pop('author', None)
         
         logger.info(f"Creating post with poll_data: {poll_data}")
-        
+
+        if author is not None:
+            request = self.context.get('request')
+            authorization = request.headers.get('Authorization', '') if request else ''
+            identity_payload = get_identity_user_snapshot(
+                getattr(author, 'id', ''),
+                authorization_header=authorization,
+                cache=self.context.setdefault('identity_user_cache', {}),
+            )
+            validated_data['author_identity_id'] = str(author.id)
+            validated_data['author_snapshot'] = merge_identity_snapshot(
+                snapshot_from_principal(author),
+                identity_payload,
+            )
+
         post = FeedPost.objects.create(**validated_data)
         
         # Create file attachments
@@ -392,7 +422,7 @@ class FeedPostDetailSerializer(FeedPostSerializer):
         
         content_type = ContentType.objects.get_for_model(FeedPost)
         return Like.objects.filter(
-            user=request.user,
+            user_identity_id=str(request.user.id),
             content_type=content_type,
             object_id=obj.id
         ).exists()

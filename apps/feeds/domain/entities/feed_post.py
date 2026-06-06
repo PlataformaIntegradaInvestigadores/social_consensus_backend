@@ -2,13 +2,12 @@
 Modelo para los posts del feed social
 """
 from django.db import models
-from django.contrib.auth import get_user_model
 from django.utils import timezone
 from pgvector.django import VectorField
 import uuid
 import math
 
-User = get_user_model()
+from apps.custom_auth.identity_principal import ref_from_snapshot, snapshot_from_principal
 
 
 def get_post_file_path(instance, filename):
@@ -23,7 +22,8 @@ class FeedPost(models.Model):
     Modelo para posts del feed social
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='feed_posts', verbose_name="Autor")
+    author_identity_id = models.CharField(max_length=64, db_index=True, verbose_name="ID externo del autor")
+    author_snapshot = models.JSONField(default=dict, blank=True, verbose_name="Snapshot del autor")
     content = models.TextField(verbose_name="Contenido del post")
     
     # Vector embedding para recomendaciones (768 dimensiones)
@@ -60,13 +60,22 @@ class FeedPost(models.Model):
         indexes = [
             models.Index(fields=['-created_at']),
             models.Index(fields=['-engagement_score']),
-            models.Index(fields=['author', '-created_at']),
+            models.Index(fields=['author_identity_id', '-created_at'], name='feeds_feedp_auth_ident_idx'),
             models.Index(fields=['-engagement_score', '-created_at'], name='trending_idx'),
         ]
     
     def __str__(self):
         content_preview = self.content[:50] + "..." if len(self.content) > 50 else self.content
-        return f"{self.author.username} - {content_preview}"
+        return f"{self.author.username or self.author_identity_id} - {content_preview}"
+
+    @property
+    def author(self):
+        return ref_from_snapshot(self.author_identity_id, self.author_snapshot)
+
+    @author.setter
+    def author(self, value):
+        self.author_identity_id = str(value.id)
+        self.author_snapshot = snapshot_from_principal(value)
     
     def update_engagement_score(self):
         """

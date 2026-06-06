@@ -50,7 +50,7 @@ def vote_poll(request, poll_id):
             )
         
         # Verificar si el usuario ya votó
-        existing_votes = PollVote.objects.filter(poll=poll, user=request.user)
+        existing_votes = PollVote.objects.filter(poll=poll, user_identity_id=str(request.user.id))
         if existing_votes.exists() and not poll.is_multiple_choice:
             return Response(
                 {'error': 'Ya has votado en esta encuesta'}, 
@@ -76,7 +76,14 @@ def vote_poll(request, poll_id):
                 vote, created = PollVote.objects.get_or_create(
                     poll=poll,
                     option=option,
-                    user=request.user
+                    user_identity_id=str(request.user.id),
+                    defaults={'user_snapshot': {
+                        'id': str(request.user.id),
+                        'username': getattr(request.user, 'username', ''),
+                        'first_name': getattr(request.user, 'first_name', ''),
+                        'last_name': getattr(request.user, 'last_name', ''),
+                        'profile_picture': getattr(request.user, 'profile_picture', ''),
+                    }}
                 )
                 if created:
                     votes_created.append(vote)
@@ -119,7 +126,7 @@ def remove_vote(request, poll_id):
             )
         
         # Eliminar votos del usuario
-        votes = PollVote.objects.filter(poll=poll, user=request.user)
+        votes = PollVote.objects.filter(poll=poll, user_identity_id=str(request.user.id))
         if not votes.exists():
             return Response(
                 {'error': 'No tienes votos en esta encuesta'}, 

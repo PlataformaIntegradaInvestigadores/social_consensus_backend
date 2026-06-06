@@ -1,16 +1,15 @@
-from rest_framework import generics, permissions, status
-from rest_framework.response import Response
-from django.apps import apps
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.apps import apps
+from django.utils import timezone
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
 
 from apps.concensus.domain.entities.final_topic_order import FinalTopicOrder
 from apps.concensus.domain.entities.user_phase import UserPhase
 from apps.concensus.infrastructure.api.v1.serializers.final_topic_serializer import FinalTopicOrderSerializer
-from django.utils import timezone
-
 from apps.concensus.infrastructure.api.v1.serializers.notification_serializer import NotificationPhaseTwoSerializer
-from apps.custom_auth.domain.entities.user import User
+from apps.custom_auth.identity_principal import snapshot_from_principal
 
 
 class SaveFinalTopicOrderView(generics.CreateAPIView):
@@ -18,43 +17,54 @@ class SaveFinalTopicOrderView(generics.CreateAPIView):
     serializer_class = FinalTopicOrderSerializer
 
     def post(self, request, group_id):
-        data = request.data
-        user_id = request.user.id
-        final_topic_orders = data.get('final_topic_orders', [])
+        user_id = str(request.user.id)
+        final_topic_orders = request.data.get('final_topic_orders', [])
 
         if not final_topic_orders:
             return Response({"error": "No topic order data provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Delete existing records for this user and group
-        FinalTopicOrder.objects.filter(idGroup=group_id, idUser=user_id).delete()
+        group_snapshot = {"id": str(group_id)}
+        user_snapshot = snapshot_from_principal(request.user)
 
-        # Save new records
+        FinalTopicOrder.objects.filter(
+            idGroup_identity_id=str(group_id),
+            idUser_identity_id=user_id,
+        ).delete()
+
         for order in final_topic_orders:
-            order['idGroup'] = group_id
-            order['idUser'] = user_id
+            order['idGroup_identity_id'] = str(group_id)
+            order['idGroup_snapshot'] = group_snapshot
+            order['idUser_identity_id'] = user_id
+            order['idUser_snapshot'] = user_snapshot
             serializer = self.serializer_class(data=order)
             if serializer.is_valid():
                 serializer.save()
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Update or create UserPhase
-        UserPhase.objects.update_or_create(user_id=user_id, group_id=group_id, defaults={'phase': 2, 'completed_at': timezone.now()})
+        UserPhase.objects.update_or_create(
+            user_identity_id=user_id,
+            group_identity_id=str(group_id),
+            defaults={
+                'user_snapshot': user_snapshot,
+                'group_snapshot': group_snapshot,
+                'phase': 2,
+                'completed_at': timezone.now(),
+            },
+        )
 
-        # Send WebSocket notification
-        group = apps.get_model('custom_auth', 'Group').objects.get(id=group_id)
-        message = f'{request.user.first_name} {request.user.last_name} ✔️ has completed the phase Two'
-        user = User.objects.get(id=user_id)
+        display_name = request.user.get_full_name() or request.user.username or user_id
+        message = f'{display_name} has completed the phase Two'
 
         NotificationPhaseTwo = apps.get_model('concensus', 'NotificationPhaseTwo')
         notification = NotificationPhaseTwo.objects.create(
-            user=user,
-            group=group,
+            user_identity_id=user_id,
+            user_snapshot=user_snapshot,
+            group_identity_id=str(group_id),
+            group_snapshot=group_snapshot,
             notification_type='consensus_finalized',
-            message=message
+            message=message,
         )
-
-        profile_picture_url = user.profile_picture.url if user.profile_picture else None
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -64,10 +74,10 @@ class SaveFinalTopicOrderView(generics.CreateAPIView):
                 'message': {
                     'type': 'consensus_finalized',
                     'user_id': user_id,
-                    'group_id': group_id,
+                    'group_id': str(group_id),
                     'notification_message': message,
                     'added_at': timezone.now().isoformat(),
-                    'profile_picture_url': profile_picture_url, 
+                    'profile_picture_url': user_snapshot.get('profile_picture'),
                 }
             }
         )

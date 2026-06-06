@@ -70,7 +70,7 @@ class UserLikesView(generics.ListAPIView):
     
     def get_queryset(self):
         """Get user's likes"""
-        queryset = Like.objects.filter(user=self.request.user)
+        queryset = Like.objects.filter(user_identity_id=str(self.request.user.id))
         
         # Filter by content type if specified
         content_type = self.request.query_params.get('content_type', '')
@@ -82,7 +82,7 @@ class UserLikesView(generics.ListAPIView):
                 ct = ContentType.objects.get_for_model(Comment)
                 queryset = queryset.filter(content_type=ct)
         
-        return queryset.select_related('user', 'content_type').order_by('-created_at')
+        return queryset.select_related('content_type').order_by('-created_at')
 
 
 @api_view(['POST', 'DELETE'])
@@ -113,14 +113,14 @@ def like_post(request, post_id):
         
         # Check if like exists and remove it
         like_exists = Like.objects.filter(
-            user=request.user,
+            user_identity_id=str(request.user.id),
             content_type=ct,
             object_id=post.id
         ).exists()
         
         if like_exists:
             Like.objects.filter(
-                user=request.user,
+                user_identity_id=str(request.user.id),
                 content_type=ct,
                 object_id=post.id
             ).delete()
@@ -176,14 +176,14 @@ def like_comment(request, comment_id):
         
         # Check if like exists and remove it
         like_exists = Like.objects.filter(
-            user=request.user,
+            user_identity_id=str(request.user.id),
             content_type=ct,
             object_id=comment.id
         ).exists()
         
         if like_exists:
             Like.objects.filter(
-                user=request.user,
+                user_identity_id=str(request.user.id),
                 content_type=ct,
                 object_id=comment.id
             ).delete()
@@ -220,7 +220,7 @@ def post_likes(request, post_id):
     likes = Like.objects.filter(
         content_type=ct,
         object_id=post.id
-    ).select_related('user').order_by('-created_at')
+    ).order_by('-created_at')
     
     # Serialize the likes
     serializer = LikeSerializer(likes, many=True)
@@ -252,7 +252,7 @@ def comment_likes(request, comment_id):
     likes = Like.objects.filter(
         content_type=ct,
         object_id=comment.id
-    ).select_related('user').order_by('-created_at')
+    ).order_by('-created_at')
     
     # Serialize the likes
     serializer = LikeSerializer(likes, many=True)

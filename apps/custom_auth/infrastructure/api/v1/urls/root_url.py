@@ -1,62 +1,49 @@
-from django.http import JsonResponse
 from django.urls import path, re_path
-from apps.custom_auth.infrastructure.api.v1.views.group_views import GroupDeleteView, GroupDetailView, GroupLeaveView, RemoveMemberView, UserDetailViewtoGroup, UserGroupsListView
-from apps.custom_auth.infrastructure.api.v1.views.company_views import (
-    CompanyListView, CompanyUpdateView, CompanyTokenObtainPairView,
-    CompanyDetailView, CompanyProfileView, CompanyRegisterView
-)
+
 from apps.custom_auth.infrastructure.api.v1.views.company_choices_views import CompanyChoicesView
-from apps.custom_auth.views import *
+from apps.custom_auth.infrastructure.api.v1.views.company_views import (
+    CompanyDetailView,
+    CompanyListView,
+    CompanyProfileView,
+    CompanyRegisterView,
+    CompanyTokenObtainPairView,
+    CompanyUpdateView,
+)
+from apps.custom_auth.infrastructure.api.v1.views.retired_legacy_identity_views import (
+    RetiredLegacyIdentityRouteView,
+)
 
-def test_view(request):
-    return JsonResponse({"message": "Test URL works!"})
 
+retired_identity_view = RetiredLegacyIdentityRouteView.as_view()
 
 
 urlpatterns = [
-     # URLs para usuarios (investigadores)
-     path('token/', UserTokenObtainPairView.as_view(), name='token_obtain_pair'),
-     path('token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
-     path('register/', RegisterView.as_view(), name='register'),
-     re_path(r'^users/(?P<pk>[a-zA-Z0-9]+)/$',
-            UserDetailView.as_view(), name='user-detail'),
-     re_path(r'^users/(?P<pk>[a-zA-Z0-9]+)/update/$',
-            UserUpdateView.as_view(), name='user-update'),
-     path('users/', UserListView.as_view(), name='user-list'),
+    # Rutas legacy de identidad/perfil/grupos retiradas del monolito.
+    # El gateway conserva estos contratos publicos, pero los envia a
+    # profile_identity_backend como fuente canonica.
+    path("token/", retired_identity_view, {"legacy_route": "token/"}, name="retired-token-obtain-pair"),
+    path("token/refresh/", retired_identity_view, {"legacy_route": "token/refresh/"}, name="retired-token-refresh"),
+    path("register/", retired_identity_view, {"legacy_route": "register/"}, name="retired-register"),
+    re_path(r"^users(?:/.*)?$", retired_identity_view, {"legacy_route": "users"}, name="retired-users"),
+    re_path(
+        r"^profile-information(?:/.*)?$",
+        retired_identity_view,
+        {"legacy_route": "profile-information"},
+        name="retired-profile-information",
+    ),
+    re_path(
+        r"^(?:groups|test/user/groups|test/users/groups)(?:/.*)?$",
+        retired_identity_view,
+        {"legacy_route": "groups"},
+        name="retired-groups",
+    ),
 
-     # URLs para empresas
-     path('companies/token/', CompanyTokenObtainPairView.as_view(), name='company_token_obtain_pair'),
-     path('companies/register/', CompanyRegisterView.as_view(), name='company_register'),
-     path('companies/', CompanyListView.as_view(), name='company-list'),
-     path('companies/profile/', CompanyProfileView.as_view(), name='company-profile'),
-     path('companies/choices/', CompanyChoicesView.as_view(), name='company-choices'),
-     re_path(r'^companies/(?P<pk>[a-zA-Z0-9]+)/$',
-            CompanyDetailView.as_view(), name='company-detail'),
-     re_path(r'^companies/(?P<pk>[a-zA-Z0-9]+)/update/$',
-            CompanyUpdateView.as_view(), name='company-update'),
-
-     # URLs generales
-     path('groups/', GroupListCreateView.as_view(), name='group-list-create'),
-     path('profile-information/', ProfileInformationDetailView.as_view(),
-         name='profile-information-detail'),
-     path('profile-information/<str:user__id>/', PublicProfileInformationDetailView.as_view(),
-         name='public-profile-information-detail'),
-     
-     # Nueva ruta para listar grupos del usuario autenticado
-     #path('test/user/groups/', UserGroupsListView.as_view(), name='user-groups-list'),
-     
-     # Ruta temporal para pruebas
-     path('test/user/groups/', UserGroupsListView.as_view(), name='test-user-groups-list'),
-     #path('test/', test_view, name='test-view'),  # Ruta de prueba básica
-
-
-    path('test/user/groups/<pk>/delete/', GroupDeleteView.as_view(), name='group-delete'),
-    path('test/user/groups/<pk>/leave/', GroupLeaveView.as_view(), name='group-leave'),
-
-    path('test/users/groups/<str:pk>/', UserDetailViewtoGroup.as_view(), name='user-detail'),
-
-    path('groups/<str:pk>/', GroupDetailView.as_view(), name='group-detail'),
-
-     path('groups/<str:pk>/remove-member/<str:user_id>/', RemoveMemberView.as_view(), name='remove-member'),
-
+    # Empresas siguen perteneciendo al backend social durante esta iteracion.
+    path("companies/token/", CompanyTokenObtainPairView.as_view(), name="company_token_obtain_pair"),
+    path("companies/register/", CompanyRegisterView.as_view(), name="company_register"),
+    path("companies/", CompanyListView.as_view(), name="company-list"),
+    path("companies/profile/", CompanyProfileView.as_view(), name="company-profile"),
+    path("companies/choices/", CompanyChoicesView.as_view(), name="company-choices"),
+    re_path(r"^companies/(?P<pk>[a-zA-Z0-9]+)/$", CompanyDetailView.as_view(), name="company-detail"),
+    re_path(r"^companies/(?P<pk>[a-zA-Z0-9]+)/update/$", CompanyUpdateView.as_view(), name="company-update"),
 ]

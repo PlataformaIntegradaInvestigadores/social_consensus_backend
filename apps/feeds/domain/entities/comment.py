@@ -2,10 +2,9 @@
 Modelo para comentarios recursivos en posts del feed
 """
 from django.db import models
-from django.contrib.auth import get_user_model
 import uuid
 
-User = get_user_model()
+from apps.custom_auth.identity_principal import ref_from_snapshot, snapshot_from_principal
 
 
 class Comment(models.Model):
@@ -21,12 +20,8 @@ class Comment(models.Model):
         related_name='comments',
         verbose_name="Post"
     )
-    author = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='feed_comments',
-        verbose_name="Autor"
-    )
+    author_identity_id = models.CharField(max_length=64, db_index=True, verbose_name="ID externo del autor")
+    author_snapshot = models.JSONField(default=dict, blank=True, verbose_name="Snapshot del autor")
     
     # Comentario padre para recursividad (None si es comentario de primer nivel)
     parent_comment = models.ForeignKey(
@@ -63,8 +58,17 @@ class Comment(models.Model):
         indexes = [
             models.Index(fields=['post', 'created_at']),
             models.Index(fields=['parent_comment', 'created_at']),
-            models.Index(fields=['author', '-created_at']),
+            models.Index(fields=['author_identity_id', '-created_at'], name='feeds_comme_auth_ident_idx'),
         ]
+
+    @property
+    def author(self):
+        return ref_from_snapshot(self.author_identity_id, self.author_snapshot)
+
+    @author.setter
+    def author(self, value):
+        self.author_identity_id = str(value.id)
+        self.author_snapshot = snapshot_from_principal(value)
     
     def __str__(self):
         content_preview = self.content[:50] + "..." if len(self.content) > 50 else self.content

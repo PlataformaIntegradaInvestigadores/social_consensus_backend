@@ -8,7 +8,6 @@ from django.db.models import QuerySet, F, Q
 from django.db.models.expressions import RawSQL
 from django.conf import settings
 from django.utils import timezone
-from django.contrib.auth import get_user_model
 from datetime import timedelta
 
 # Importar modelos de jobs
@@ -22,7 +21,6 @@ except ImportError:
     user_vector_service = None
 
 logger = logging.getLogger(__name__)
-User = get_user_model()
 
 
 class JobsService:
@@ -150,12 +148,18 @@ class JobsService:
         Obtiene recomendaciones personalizadas de trabajos basadas en el perfil del usuario
         """
         try:
+            if user:
+                user_id = str(user.id)
+            logger.info(f"Obteniendo recomendaciones de trabajos para usuario {user_id}")
+            logger.info("Usando recomendaciones basicas sin consultar custom_auth.User local")
+            return self._get_basic_recommendations(None, limit)
+
             # Permitir usar tanto user_id como objeto user
             if user:
                 user_obj = user
                 user_id = str(user.id)
             else:
-                user_obj = User.objects.get(id=user_id)
+                user_obj = None
             
             logger.info(f"Obteniendo recomendaciones de trabajos para usuario {user_id}")
             
@@ -169,7 +173,7 @@ class JobsService:
                 logger.info(f"Usuario {user_id} sin embedding, usando recomendaciones básicas")
                 return self._get_basic_recommendations(user_obj, limit)
                 
-        except User.DoesNotExist:
+        except NameError:
             logger.error(f"Usuario {user_id} no encontrado")
             return Jobs.objects.none()
         except Exception as e:

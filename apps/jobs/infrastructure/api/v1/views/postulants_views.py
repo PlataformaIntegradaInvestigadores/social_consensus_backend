@@ -27,7 +27,7 @@ class PostulantsView(APIView):
             return Postulants.objects.filter(job__company=user)
         else:  # Es un usuario normal
             # El usuario solo ve sus propias postulaciones
-            return Postulants.objects.filter(user=user)
+            return Postulants.objects.filter(user_identity_id=str(user.id))
 
     def get(self, request, pk=None):
         if pk:
@@ -44,7 +44,7 @@ class PostulantsView(APIView):
                                   status=status.HTTP_403_FORBIDDEN)
             else:
                 # Los usuarios solo ven sus propias postulaciones
-                if postulant.user != user:
+                if postulant.user_identity_id != str(user.id):
                     return Response({'error': 'No tienes permisos para ver esta postulación'}, 
                                   status=status.HTTP_403_FORBIDDEN)
                     
@@ -82,7 +82,7 @@ class PostulantsView(APIView):
                           status=status.HTTP_404_NOT_FOUND)
         
         # Verificar si ya se postuló
-        if Postulants.objects.filter(user=request.user, job=job).exists():
+        if Postulants.objects.filter(user_identity_id=str(request.user.id), job=job).exists():
             return Response({'error': 'Ya te has postulado a este trabajo'}, 
                           status=status.HTTP_400_BAD_REQUEST)
           # Crear los datos para el serializer sin incluir job en los datos de validación
@@ -109,7 +109,7 @@ class PostulantsView(APIView):
                               status=status.HTTP_403_FORBIDDEN)
         else:
             # Los usuarios solo pueden actualizar su carta de presentación
-            if postulant.user != user:
+            if postulant.user_identity_id != str(user.id):
                 return Response({'error': 'No tienes permisos para actualizar esta postulación'}, 
                               status=status.HTTP_403_FORBIDDEN)
             # Limitar campos que pueden actualizar
@@ -130,7 +130,7 @@ class PostulantsView(APIView):
             return Response({'error': 'Postulación no encontrada'}, status=status.HTTP_404_NOT_FOUND)
         
         # Solo el usuario que se postuló puede eliminar su postulación
-        if hasattr(request.user, 'company_name') or postulant.user != request.user:
+        if hasattr(request.user, 'company_name') or postulant.user_identity_id != str(request.user.id):
             return Response({'error': 'No tienes permisos para eliminar esta postulación'}, 
                           status=status.HTTP_403_FORBIDDEN)
         
@@ -158,7 +158,7 @@ class ApplicationStatusView(APIView):
                           status=status.HTTP_404_NOT_FOUND)
         
         try:
-            application = Postulants.objects.get(user=request.user, job=job)
+            application = Postulants.objects.get(user_identity_id=str(request.user.id), job=job)
             return Response({
                 'has_applied': True,
                 'application': {
@@ -194,7 +194,7 @@ class CompanyApplicationsView(APIView):
         status_filter = request.GET.get('status', '')
         
         # Obtener todas las postulaciones a trabajos de la compañía
-        queryset = Postulants.objects.filter(job__company=request.user).select_related('user', 'job')
+        queryset = Postulants.objects.filter(job__company=request.user).select_related('job')
         
         # Si se especifica un job_id, filtrar por ese trabajo
         if job_id:
@@ -259,7 +259,7 @@ class UserApplicationsView(APIView):
         status_filter = request.GET.get('status', '')
         
         # Obtener todas las postulaciones del usuario
-        queryset = Postulants.objects.filter(user=request.user).select_related('job', 'job__company')
+        queryset = Postulants.objects.filter(user_identity_id=str(request.user.id)).select_related('job', 'job__company')
         
         if status_filter:
             queryset = queryset.filter(status=status_filter)

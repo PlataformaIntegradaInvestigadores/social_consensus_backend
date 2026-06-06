@@ -4,8 +4,8 @@ from rest_framework_simplejwt.tokens import UntypedToken
 from jwt import decode as jwt_decode, ExpiredSignatureError, InvalidTokenError
 from django.conf import settings
 from asgiref.sync import sync_to_async
-from apps.custom_auth.domain.entities.user import User
-from apps.custom_auth.domain.entities.company import Company
+from apps.custom_auth.identity_principal import IdentityPrincipal
+from apps.jobs.domain.entities.company import Company
 
 class JwtAuthMiddleware(BaseMiddleware):
     async def __call__(self, scope, receive, send):
@@ -27,9 +27,12 @@ class JwtAuthMiddleware(BaseMiddleware):
                 payload = jwt_decode(token, settings.SECRET_KEY, algorithms=["HS256"])
                 
                 # Determinar si es un usuario o una empresa
-                if 'user_id' in payload:
-                    user = await sync_to_async(User.objects.get)(id=payload['user_id'])
-                    scope['user'] = user
+                user_id = payload.get('user_id') or payload.get('sub')
+                if user_id:
+                    scope['user'] = IdentityPrincipal(
+                        id=str(user_id),
+                        username=str(payload.get('email') or payload.get('username') or ''),
+                    )
                 elif 'company_id' in payload:
                     company = await sync_to_async(Company.objects.get)(id=payload['company_id'])
                     scope['user'] = company

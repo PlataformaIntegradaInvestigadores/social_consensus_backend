@@ -2,12 +2,11 @@
 Modelo para likes en posts y comentarios del feed
 """
 from django.db import models
-from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 import uuid
 
-User = get_user_model()
+from apps.custom_auth.identity_principal import ref_from_snapshot, snapshot_from_principal
 
 
 class Like(models.Model):
@@ -17,13 +16,9 @@ class Like(models.Model):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
-    # Usuario que da el like
-    user = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='likes_given',
-        verbose_name="Usuario"
-    )
+    # Identidad externa que da el like. La fuente canonica vive en profile_identity_backend.
+    user_identity_id = models.CharField(max_length=64, db_index=True, verbose_name="ID externo del usuario")
+    user_snapshot = models.JSONField(default=dict, blank=True, verbose_name="Snapshot del usuario")
     
     # Generic Foreign Key para likes en posts o comentarios
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
@@ -36,12 +31,21 @@ class Like(models.Model):
     class Meta:
         verbose_name = "Like"
         verbose_name_plural = "Likes"
-        unique_together = ['user', 'content_type', 'object_id']  # Un usuario solo puede dar un like por objeto
+        unique_together = ['user_identity_id', 'content_type', 'object_id']  # Un usuario solo puede dar un like por objeto
         indexes = [
             models.Index(fields=['content_type', 'object_id']),
-            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['user_identity_id', '-created_at'], name='feeds_like_user_identity_idx'),
         ]
     
+    @property
+    def user(self):
+        return ref_from_snapshot(self.user_identity_id, self.user_snapshot)
+
+    @user.setter
+    def user(self, value):
+        self.user_identity_id = str(value.id)
+        self.user_snapshot = snapshot_from_principal(value)
+
     def __str__(self):
         return f"{self.user.username} likes {self.content_object}"
     
@@ -60,9 +64,10 @@ class Like(models.Model):
         content_type = ContentType.objects.get_for_model(target_object)
         
         like, created = cls.objects.get_or_create(
-            user=user,
+            user_identity_id=str(user.id),
             content_type=content_type,
-            object_id=target_object.id
+            object_id=target_object.id,
+            defaults={'user_snapshot': snapshot_from_principal(user)}
         )
         
         if not created:
@@ -122,7 +127,7 @@ class Like(models.Model):
         for content_type, object_ids in objects_by_type.items():
             likes.extend(
                 cls.objects.filter(
-                    user=user,
+                    user_identity_id=str(user.id),
                     content_type=content_type,
                     object_id__in=object_ids
                 )
