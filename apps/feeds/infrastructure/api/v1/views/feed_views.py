@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes as perm_classes
 from rest_framework.response import Response
@@ -5,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db import models
+from django.db.models.expressions import RawSQL
 
 from apps.feeds.domain.entities.feed_post import FeedPost
 from apps.feeds.domain.services.feed_service import FeedService
@@ -18,6 +21,8 @@ from apps.feeds.infrastructure.api.v1.serializers.feed_post_serializers import (
     FeedPostSerializer,
     FeedPostDetailSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class FeedView(generics.GenericAPIView):
@@ -205,7 +210,10 @@ def trending_posts(request):
     GET: Get trending posts based on engagement
     """
     # Get parameters
-    limit = min(int(request.GET.get('limit', 20)), 50)
+    try:
+        limit = min(max(int(request.GET.get('limit', 20)), 1), 50)
+    except (TypeError, ValueError):
+        limit = 20
     time_range = request.GET.get('time_range', '24h')  # 24h, 7d, 30d
     
     # Calculate time threshold
@@ -220,25 +228,32 @@ def trending_posts(request):
         time_threshold = now - timezone.timedelta(hours=24)
     
     # Calcular horas desde la creación para mostrar en respuesta
-    hours_old_sql = "EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600"
+    hours_old_sql = 'EXTRACT(EPOCH FROM (NOW() - "feeds_feedpost"."created_at")) / 3600'
     
     # Obtener trending score mejorado para ordenamiento
     trending_score_sql = """
         (
             engagement_score * 0.8 + 
-            (engagement_score / GREATEST(1, SQRT(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600))) * 0.2
+            (engagement_score / GREATEST(1, SQRT(EXTRACT(EPOCH FROM (NOW() - "feeds_feedpost"."created_at")) / 3600))) * 0.2
         )
     """
     
-    # Get trending posts con score calculado
-    posts = FeedPost.objects.filter(
-        created_at__gte=time_threshold,
-        is_public=True
-    ).annotate(
-        hours_old=models.RawSQL(hours_old_sql, []),
-        trending_rank=models.RawSQL(trending_score_sql, []),
-        comments_count_real=models.Count('comments', filter=models.Q(comments__is_deleted=False))
-    ).order_by('-trending_rank', '-engagement_score', '-created_at')[:limit]
+    try:
+        # Get trending posts con score calculado
+        posts = list(FeedPost.objects.filter(
+            created_at__gte=time_threshold,
+            is_public=True
+        ).annotate(
+            hours_old=RawSQL(hours_old_sql, []),
+            trending_rank=RawSQL(trending_score_sql, []),
+            comments_count_real=models.Count('comments', filter=models.Q(comments__is_deleted=False))
+        ).prefetch_related('post_files', 'comments').order_by('-trending_rank', '-engagement_score', '-created_at')[:limit])
+    except Exception as exc:
+        logger.exception("Error calculando feed trending; se devuelve feed reciente: %s", exc)
+        posts = list(FeedPost.objects.filter(
+            created_at__gte=time_threshold,
+            is_public=True
+        ).prefetch_related('post_files', 'comments').order_by('-created_at')[:limit])
     
     # Serialize
     serializer = FeedPostDetailSerializer(posts, many=True, context={'request': request})
@@ -247,7 +262,7 @@ def trending_posts(request):
     post_data = serializer.data
     for i, post in enumerate(posts):
         post_data[i]['trending_metadata'] = {
-            'hours_old': round(post.hours_old, 1),
+            'hours_old': round(getattr(post, 'hours_old', (now - post.created_at).total_seconds() / 3600), 1),
             'engagement_score': round(post.engagement_score, 2),
             'trending_rank': round(getattr(post, 'trending_rank', 0), 2)
         }
