@@ -269,9 +269,9 @@ class FeedPostCreateSerializer(serializers.ModelSerializer):
     def validate_content(self, value):
         """Validate post content"""
         if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("Content cannot be empty")
+            raise serializers.ValidationError("La descripción de la publicación es obligatoria.")
         if len(value) > 5000:
-            raise serializers.ValidationError("Content cannot exceed 5000 characters")
+            raise serializers.ValidationError("La descripción no puede superar los 5000 caracteres.")
         return value.strip()
     
     def validate_files(self, value):
@@ -280,15 +280,15 @@ class FeedPostCreateSerializer(serializers.ModelSerializer):
             return value
             
         if len(value) > 10:
-            raise serializers.ValidationError("Cannot upload more than 10 files per post")
+            raise serializers.ValidationError("No se pueden subir más de 10 archivos por publicación.")
         
         total_size = sum(f.size for f in value)
         if total_size > 50 * 1024 * 1024:  # 50MB total limit
-            raise serializers.ValidationError("Total file size cannot exceed 50MB")
+            raise serializers.ValidationError("El tamaño total de los archivos no puede superar 50 MB.")
         
         for file in value:
             if file.size > 10 * 1024 * 1024:  # 10MB per file
-                raise serializers.ValidationError("Individual file size cannot exceed 10MB")
+                raise serializers.ValidationError("Cada archivo debe pesar como máximo 10 MB.")
         
         return value
     
