@@ -46,7 +46,7 @@ jobs:
         run: pip install -q -r requirements.txt pytest pytest-django pytest-cov
       - name: Ejecutar tests unitarios
         run: |
-          pytest apps/ -v --tb=short --no-migrations \
+          pytest apps/ -v --tb=short \
             --junitxml=report-unit.xml \
             --cov=apps --cov-report=term --cov-report=xml:coverage-unit.xml
       - name: Subir resultados
@@ -90,7 +90,7 @@ jobs:
         run: pip install -q -r requirements.txt pytest pytest-django pytest-cov
       - name: Ejecutar tests de integración
         run: |
-          pytest apps/ -v --tb=short --no-migrations -m integration \
+          pytest apps/ -v --tb=short -m integration \
             --junitxml=report-integration.xml \
             --cov=apps --cov-report=term --cov-report=xml:coverage-integration.xml
       - name: Subir resultados

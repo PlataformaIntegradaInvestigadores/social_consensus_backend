@@ -1,14 +1,11 @@
 import pytest
 from decimal import Decimal
 from django.test import TestCase
-from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from apps.custom_auth.domain.entities.company import Company
-from apps.jobs.domain.entities.Jobs import Jobs
-
-User = get_user_model()
+from apps.jobs.domain.entities.company import Company
+from apps.jobs.domain.entities.jobs import Jobs
 
 
 class JobsModelTest(TestCase):
