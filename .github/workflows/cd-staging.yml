@@ -1,0 +1,62 @@
+name: CD — staging · social_consensus_backend
+
+on:
+  workflow_run:
+    workflows: ["CI — social_consensus_backend"]
+    branches: [staging]
+    types: [completed]
+
+jobs:
+  deploy-staging:
+    name: Deploy a servidor staging
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy con health check y rollback automático
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script_stop: false
+          script: |
+            set -e
+            cd /opt/centinela
+
+            echo "=== [1/4] Guardando estado anterior ==="
+            docker compose ps --format json > /tmp/centinela_pre_deploy.json || true
+
+            echo "=== [2/4] Actualizando repositorio ==="
+            cd /opt/centinela/social_consensus_backend && git pull origin staging
+            cd /opt/centinela
+
+            echo "=== [3/4] Rebuilding y desplegando ==="
+            docker compose up -d --build social-web celery-worker celery-beat
+
+            echo "=== [4/4] Health checks (30s timeout) ==="
+            sleep 10
+            HEALTHY=true
+
+            for i in 1 2 3 4 5; do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:8000/api/v1/ || echo "000")
+              echo "  Intento $i — HTTP $STATUS"
+              if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "404" ]; then
+                echo "  [OK] social-web responde"
+                HEALTHY=true
+                break
+              fi
+              HEALTHY=false
+              sleep 6
+            done
+
+            if [ "$HEALTHY" = "false" ]; then
+              echo "=== [ROLLBACK] Health check falló — revirtiendo ==="
+              cd /opt/centinela/social_consensus_backend && git checkout HEAD~1
+              cd /opt/centinela && docker compose up -d --build social-web celery-worker celery-beat
+              echo "  [ROLLBACK COMPLETADO]"
+              exit 1
+            fi
+
+            echo "=== Deploy exitoso ==="
+            docker compose ps
