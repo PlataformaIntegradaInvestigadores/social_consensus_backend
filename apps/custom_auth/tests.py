@@ -1,3 +1,4 @@
+import pytest
 from django.test import SimpleTestCase
 from django.urls import resolve
 from rest_framework import status
@@ -6,6 +7,7 @@ from rest_framework.test import APIClient
 from apps.custom_auth.infrastructure.api.v1.views.company_views import CompanyRegisterView
 
 
+@pytest.mark.integration
 class RetiredLegacyIdentityRoutesTests(SimpleTestCase):
     def setUp(self):
         self.client = APIClient()
@@ -37,6 +39,7 @@ class RetiredLegacyIdentityRoutesTests(SimpleTestCase):
         self.assertEqual(response.data["canonical_service"], "profile_identity_backend")
 
 
+@pytest.mark.integration
 class CompanyRoutesRemainOwnedBySocialBackendTests(SimpleTestCase):
     def test_company_register_route_is_not_retired(self):
         resolved = resolve("/api/companies/register/")
