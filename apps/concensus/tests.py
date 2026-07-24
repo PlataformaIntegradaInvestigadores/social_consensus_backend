@@ -22,7 +22,7 @@ class TopicListIntegrationTests(APITestCase):
             group_snapshot={"id": "group-2", "name": "Grupo Dos", "title": ""},
         )
 
-        response = self.client.get("/api/v1/topic/", {"group_id": "group-1"})
+        response = self.client.get("/api/v1/topic/topic/", {"group_id": "group-1"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
@@ -37,7 +37,7 @@ class TopicListIntegrationTests(APITestCase):
             group_snapshot={"id": "group-1", "name": "Grupo Uno", "title": ""},
         )
 
-        response = self.client.get("/api/v1/topic/", {"group_id": "group-does-not-exist"})
+        response = self.client.get("/api/v1/topic/topic/", {"group_id": "group-does-not-exist"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["data"], [])
