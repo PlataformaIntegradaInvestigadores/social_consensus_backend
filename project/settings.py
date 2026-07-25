@@ -256,6 +256,11 @@ LOGGING = {
 # Configuración del microservicio de embeddings
 EMBEDDING_SERVICE_URL = os.getenv('EMBEDDING_SERVICE_URL', 'http://localhost:8001')
 
+# Configuración del GRS (predictive_model_backend) para recomendación de tópicos
+GRS_SERVICE_URL = os.getenv(
+    'GRS_SERVICE_URL', 'http://localhost:8003/api/v1/recommendations'
+)
+
 # Configuración de vectores
 VECTOR_DIMENSIONS = 768  # Dimensiones del modelo de embeddings
 
