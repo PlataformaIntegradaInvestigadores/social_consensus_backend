@@ -70,3 +70,24 @@ def get_identity_user_snapshot(user_id, authorization_header="", cache=None):
     if cache is not None:
         cache[cache_key] = data
     return data
+
+
+def get_identity_group_detail(group_id, authorization_header=""):
+    """Obtiene el detalle de un grupo (incluye sus miembros con scopus_id)
+    desde profile_identity_backend, fuente canonica de grupos."""
+    if not group_id:
+        return None
+
+    base_url = getattr(settings, "PROFILE_IDENTITY_BASE_URL", "http://profile-identity-web:8002")
+    url = urljoin(base_url.rstrip("/") + "/", f"api/groups/{group_id}/")
+    headers = {}
+    if authorization_header:
+        headers["Authorization"] = authorization_header
+
+    try:
+        response = requests.get(url, headers=headers, timeout=3)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        logger.warning("No se pudo resolver grupo de identidad %s: %s", group_id, exc)
+        return None

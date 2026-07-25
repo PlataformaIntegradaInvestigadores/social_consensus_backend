@@ -19,6 +19,8 @@ from apps.concensus.infrastructure.api.v1.serializers.topic_serializer import (
     TopicSerializer,
 )
 from apps.custom_auth.identity_principal import snapshot_from_principal
+from apps.custom_auth.identity_profile_client import get_identity_group_detail
+from apps.concensus.infrastructure.external.grs_client import fetch_grs_topics
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +58,58 @@ class RandomRecommendedTopicView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        group_id = self.kwargs.get('group_id')
+
+        if group_id:
+            already_assigned = RecommendedTopic.objects.filter(
+                group_identity_id=str(group_id)
+            ).order_by('id')
+
+            if already_assigned.exists():
+                return already_assigned
+
+        grs_topics = self._get_grs_topics(group_id) if group_id else None
+
+        if grs_topics:
+            return grs_topics
+
         queryset = RecommendedTopic.objects.filter(group_identity_id__isnull=True)
         sampled_queryset = random.sample(list(queryset), min(len(queryset), 5))
         return sorted(sampled_queryset, key=lambda topic: topic.topic_name)
+
+    def _get_grs_topics(self, group_id):
+        """Si algún miembro del grupo (resuelto vía profile_identity_backend,
+        fuente canónica de grupos) tiene un scopus_id vinculado a un grupo
+        persistente del GRS, crea RecommendedTopic reales a partir de esas
+        recomendaciones. Si no hay vínculo (o algún servicio no responde),
+        retorna None para que get_queryset() use el muestreo aleatorio."""
+        group_detail = get_identity_group_detail(
+            group_id,
+            authorization_header=self.request.headers.get('Authorization', ''),
+        )
+        if not group_detail:
+            return None
+
+        scopus_ids = [
+            user.get('scopus_id')
+            for user in group_detail.get('users', [])
+            if user.get('scopus_id')
+        ]
+        if not scopus_ids:
+            return None
+
+        topic_names = fetch_grs_topics(scopus_ids, k=5)
+        if not topic_names:
+            return None
+
+        return [
+            RecommendedTopic.objects.create(
+                topic_name=name,
+                group_identity_id=str(group_id),
+                group_snapshot=_group_snapshot(group_id),
+            )
+            for name in topic_names
+        ]
 
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
