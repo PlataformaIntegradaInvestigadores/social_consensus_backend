@@ -115,7 +115,7 @@ jobs:
       - name: Reconstruir contenedor
         run: |
           cd /opt/centinela
-          docker compose up -d --build social-web
+          docker compose up -d --build --no-deps social-web
 
       - name: Ejecutar migraciones
         run: |
@@ -138,7 +138,7 @@ jobs:
           if [ "$HEALTHY" = "false" ]; then
             echo "Health check fallido — rollback al commit anterior"
             cd /opt/centinela/social_consensus_backend && git reset --hard HEAD~1
-            cd /opt/centinela && docker compose up -d --build social-web
+            cd /opt/centinela && docker compose up -d --build --no-deps social-web
             exit 1
           fi
           echo "Deploy exitoso — social_consensus_backend en producción"
