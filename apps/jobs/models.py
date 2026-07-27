@@ -1,5 +1,4 @@
 from django.db import models
-from apps.concensus.domain.entities.group import Group
 from apps.concensus.domain.entities.topic import Topic
 from apps.concensus.domain.entities.notification import NotificationPhaseOne
 from apps.concensus.domain.entities.user_expertice import UserExpertise
@@ -10,5 +9,7 @@ from apps.concensus.domain.entities.result_concensus import ConsensusResult
 from apps.concensus.domain.entities.user_satisfaction import UserSatisfaction
 
 # Importar las entidades de jobs
+from apps.jobs.domain.entities.company import Company
 from apps.jobs.domain.entities.jobs import Jobs
 from apps.jobs.domain.entities.postulants import Postulants
+from apps.jobs.domain.entities.job_interaction import JobInteraction

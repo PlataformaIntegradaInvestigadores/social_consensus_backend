@@ -4,20 +4,30 @@ services:
     command: daphne -b 0.0.0.0 -p 8000 project.asgi:application
     volumes:
       - .:/app
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - .env
     environment:
       - DJANGO_SETTINGS_MODULE=project.settings
+    networks:
+      centinela-net:
+        aliases:
+          - social-consensus-web
 
   db:
     image: pgvector/pgvector:pg16
+    restart: unless-stopped
     ports:
-      - 5433:${DB_PORT}
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
@@ -25,14 +35,73 @@ services:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     command: postgres -c shared_preload_libraries=vector
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - centinela-net
 
   redis:
     image: redis:6
+    restart: unless-stopped
     ports:
-      - 6379:${REDIS_PORT}
+      - "127.0.0.1:6379:6379"
     volumes:
-      - ./redis.conf:/usr/local/etc/redis/redis.conf  # Mapear el archivo redis.conf
-    command: redis-server /usr/local/etc/redis/redis.conf  # Usar redis.conf al arrancar
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - centinela-net
+
+  celery_worker:
+    build: .
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command: celery -A project worker -l info
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=project.settings
+    networks:
+      - centinela-net
+
+  celery_beat:
+    build: .
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command: celery -A project beat -l info
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=project.settings
+    networks:
+      - centinela-net
 
 volumes:
   postgres_data:
+
+networks:
+  centinela-net:
+    external: true

@@ -11,7 +11,7 @@ from ..serializers.company_serializer import (
     CompanyTokenObtainPairSerializer,
     CompanyProfileSerializer
 )
-from apps.custom_auth.models import Company
+from apps.jobs.domain.entities.company import Company
 from apps.custom_auth.authentication_mixins import NoAuthenticationRequired
 
 

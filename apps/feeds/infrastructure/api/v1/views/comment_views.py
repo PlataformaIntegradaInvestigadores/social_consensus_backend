@@ -6,6 +6,11 @@ from django.db import transaction
 from apps.feeds.domain.entities.comment import Comment
 from apps.feeds.domain.entities.feed_post import FeedPost
 from apps.feeds.domain.services.feed_service import FeedService
+from apps.custom_auth.identity_profile_client import (
+    get_identity_user_snapshot,
+    merge_identity_snapshot,
+)
+from apps.custom_auth.identity_principal import snapshot_from_principal
 from apps.feeds.infrastructure.api.v1.serializers.comment_serializers import (
     CommentSerializer,
     CommentCreateSerializer,
@@ -30,7 +35,7 @@ class CommentListCreateView(generics.ListCreateAPIView):
             post_id=post_id,
             parent_comment=None,  # Only root comments
             is_deleted=False
-        ).select_related('author').order_by('-created_at')
+        ).order_by('-created_at')
     
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -41,6 +46,15 @@ class CommentListCreateView(generics.ListCreateAPIView):
         """Create comment"""
         post_id = self.kwargs.get('post_id')
         post = get_object_or_404(FeedPost, id=post_id)
+        identity_payload = get_identity_user_snapshot(
+            self.request.user.id,
+            authorization_header=self.request.headers.get('Authorization', ''),
+            cache={},
+        )
+        author_snapshot = merge_identity_snapshot(
+            snapshot_from_principal(self.request.user),
+            identity_payload,
+        )
         
         with transaction.atomic():
             # Create comment using service
@@ -49,7 +63,8 @@ class CommentListCreateView(generics.ListCreateAPIView):
                 author_id=self.request.user.id,
                 post_id=post.id,
                 content=serializer.validated_data['content'],
-                parent_comment_id=serializer.validated_data.get('parent_comment').id if serializer.validated_data.get('parent_comment') else None
+                parent_comment_id=serializer.validated_data.get('parent_comment').id if serializer.validated_data.get('parent_comment') else None,
+                author_snapshot=author_snapshot,
             )
             
             # Update serializer instance for response
@@ -86,21 +101,21 @@ class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        return Comment.objects.select_related('author', 'post').prefetch_related('replies')
+        return Comment.objects.select_related('post').prefetch_related('replies')
     
     def get_object(self):
         """Get comment and check permissions"""
         obj = get_object_or_404(self.get_queryset(), pk=self.kwargs['pk'])
         
         # Don't show deleted comments to non-authors
-        if obj.is_deleted and obj.author != self.request.user:
+        if obj.is_deleted and obj.author_identity_id != str(self.request.user.id):
             raise permissions.PermissionDenied("Comment not found")
         
         return obj
     
     def perform_update(self, serializer):
         """Update comment (author only)"""
-        if serializer.instance.author != self.request.user:
+        if serializer.instance.author_identity_id != str(self.request.user.id):
             raise permissions.PermissionDenied("You can only edit your own comments")
         
         if serializer.instance.is_deleted:
@@ -110,7 +125,7 @@ class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def perform_destroy(self, instance):
         """Soft delete comment (author only)"""
-        if instance.author != self.request.user:
+        if instance.author_identity_id != str(self.request.user.id):
             raise permissions.PermissionDenied("You can only delete your own comments")
         
         # Soft delete
@@ -129,7 +144,7 @@ class CommentThreadView(generics.RetrieveAPIView):
     def get_queryset(self):
         return Comment.objects.filter(
             is_deleted=False
-        ).select_related('author', 'post').prefetch_related('replies')
+        ).select_related('post').prefetch_related('replies')
 
 
 class CommentRepliesView(generics.ListCreateAPIView):
@@ -147,7 +162,7 @@ class CommentRepliesView(generics.ListCreateAPIView):
         return Comment.objects.filter(
             parent_comment_id=comment_id,
             is_deleted=False
-        ).select_related('author').order_by('created_at')
+        ).order_by('created_at')
     
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -165,6 +180,15 @@ class CommentRepliesView(generics.ListCreateAPIView):
         # Check thread depth limit
         if parent_comment.thread_depth >= 5:
             raise permissions.PermissionDenied("Maximum reply depth reached")
+        identity_payload = get_identity_user_snapshot(
+            self.request.user.id,
+            authorization_header=self.request.headers.get('Authorization', ''),
+            cache={},
+        )
+        author_snapshot = merge_identity_snapshot(
+            snapshot_from_principal(self.request.user),
+            identity_payload,
+        )
         
         with transaction.atomic():
             # Create reply using service
@@ -173,7 +197,8 @@ class CommentRepliesView(generics.ListCreateAPIView):
                 author_id=self.request.user.id,
                 post_id=parent_comment.post.id,
                 content=serializer.validated_data['content'],
-                parent_comment_id=parent_comment.id
+                parent_comment_id=parent_comment.id,
+                author_snapshot=author_snapshot,
             )
             
             # Update serializer instance for response
@@ -205,6 +230,6 @@ class CommentSearchView(generics.ListAPIView):
             queryset = queryset.filter(post_id=post_id)
         
         if author:
-            queryset = queryset.filter(author__username__icontains=author)
+            queryset = queryset.filter(author_snapshot__username__icontains=author)
         
-        return queryset.select_related('author', 'post').order_by('-created_at')
+        return queryset.select_related('post').order_by('-created_at')

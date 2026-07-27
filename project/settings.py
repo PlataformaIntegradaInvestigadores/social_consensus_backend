@@ -20,13 +20,15 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv(
     'SECRET_KEY')
+JWT_SIGNING_KEY = os.getenv('JWT_SIGNING_KEY', SECRET_KEY)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Convert string "True" from .env to boolean True
 DEBUG = os.getenv('DEBUG') == 'True'
 
-ALLOWED_HOSTS = ["*"]
-# ALLOWED_HOSTS = ['centinela.epn.edu.ec', '172.28.36.130']
+ALLOWED_HOSTS = [
+    host.strip() for host in os.getenv('ALLOWED_HOSTS', '*').split(',') if host.strip()
+]
 
 
 # Application definition
@@ -117,11 +119,6 @@ DATABASES = {
     }
 }
 
-print(os.getenv('DB_NAME'))
-print(os.getenv('DB_USER'))
-print(os.getenv('DB_PASSWORD'))
-print(os.getenv('DB_HOST'))
-print(os.getenv('DB_PORT'))
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -164,8 +161,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 
 
-AUTH_USER_MODEL = 'custom_auth.User'
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
@@ -176,6 +171,9 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': os.getenv('JWT_ALGORITHM', 'HS256'),
+    'SIGNING_KEY': JWT_SIGNING_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 REST_FRAMEWORK = {
@@ -258,6 +256,26 @@ LOGGING = {
 # Configuración del microservicio de embeddings
 EMBEDDING_SERVICE_URL = os.getenv('EMBEDDING_SERVICE_URL', 'http://localhost:8001')
 
+# Configuración del GRS (predictive_model_backend) para recomendación de tópicos
+GRS_SERVICE_URL = os.getenv(
+    'GRS_SERVICE_URL', 'http://localhost:8003/api/v1/recommendations'
+)
+
 # Configuración de vectores
 VECTOR_DIMENSIONS = 768  # Dimensiones del modelo de embeddings
+
+# Configuración de Celery
+CELERY_BROKER_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1"
+CELERY_RESULT_BACKEND = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1"
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
+# Token compartido para sincronizacion interna desde el microservicio
+# profile_identity_backend hacia las tablas legacy usadas por concensus/feed/jobs.
+PROFILE_SYNC_INTERNAL_TOKEN = os.getenv('PROFILE_SYNC_INTERNAL_TOKEN', '')
+
+# Fuente canonica de identidad usada por social para resolver snapshots de autor.
+PROFILE_IDENTITY_BASE_URL = os.getenv('PROFILE_IDENTITY_BASE_URL', 'http://profile-identity-web:8002')
 
