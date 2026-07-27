@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from apps.jobs.domain.entities.jobs import Jobs
 from apps.jobs.domain.entities.postulants import Postulants
-from apps.custom_auth.domain.entities.company import Company
+from apps.jobs.domain.entities.company import Company
 
 
 class CompanyBasicSerializer(serializers.ModelSerializer):
@@ -43,7 +43,7 @@ class JobsSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             # Solo verificar para usuarios regulares, no para compañías
             if not hasattr(request.user, 'company_name'):
-                return Postulants.objects.filter(user=request.user, job=obj).exists()
+                return Postulants.objects.filter(user_identity_id=str(request.user.id), job=obj).exists()
         return False
     
     def get_user_application(self, obj):
@@ -53,7 +53,7 @@ class JobsSerializer(serializers.ModelSerializer):
             # Solo para usuarios regulares, no para compañías
             if not hasattr(request.user, 'company_name'):
                 try:
-                    application = Postulants.objects.get(user=request.user, job=obj)
+                    application = Postulants.objects.get(user_identity_id=str(request.user.id), job=obj)
                     return {
                         'id': application.id,
                         'status': application.status,
@@ -96,7 +96,7 @@ class JobsListSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             # Solo verificar para usuarios regulares, no para compañías
             if not hasattr(request.user, 'company_name'):
-                return Postulants.objects.filter(user=request.user, job=obj).exists()
+                return Postulants.objects.filter(user_identity_id=str(request.user.id), job=obj).exists()
         return False
 
 
@@ -126,5 +126,5 @@ class JobsCompanySerializer(serializers.ModelSerializer):
     def get_recent_applications(self, obj):
         """Retorna las últimas 5 postulaciones para este trabajo"""
         from apps.jobs.infrastructure.api.v1.serializers.postulants_serializer import PostulantsListSerializer
-        recent_apps = obj.applications.select_related('user').order_by('-applied_at')[:5]
+        recent_apps = obj.applications.order_by('-applied_at')[:5]
         return PostulantsListSerializer(recent_apps, many=True).data

@@ -1,20 +1,24 @@
 from rest_framework import serializers
 from apps.feeds.domain.entities.comment import Comment
-from apps.custom_auth.domain.entities.user import User
+from apps.custom_auth.identity_profile_client import (
+    get_identity_user_snapshot,
+    merge_identity_snapshot,
+)
 
 
-class CommentAuthorSerializer(serializers.ModelSerializer):
+class CommentAuthorSerializer(serializers.Serializer):
     """Minimal user serializer for comment authors"""
-    
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'first_name', 'last_name']
-        read_only_fields = ['id', 'username', 'first_name', 'last_name']
+
+    id = serializers.CharField(read_only=True)
+    username = serializers.CharField(read_only=True, allow_blank=True)
+    first_name = serializers.CharField(read_only=True, allow_blank=True)
+    last_name = serializers.CharField(read_only=True, allow_blank=True)
+    profile_picture = serializers.CharField(read_only=True, allow_blank=True)
 
 
 class CommentSerializer(serializers.ModelSerializer):
     """Basic comment serializer"""
-    author = CommentAuthorSerializer(read_only=True)
+    author = serializers.SerializerMethodField()
     replies_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     
@@ -43,6 +47,18 @@ class CommentSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
     
+    def get_author(self, obj):
+        request = self.context.get('request')
+        authorization = request.headers.get('Authorization', '') if request else ''
+        cache = self.context.setdefault('identity_user_cache', {})
+        identity_payload = get_identity_user_snapshot(
+            obj.author_identity_id,
+            authorization_header=authorization,
+            cache=cache,
+        )
+        snapshot = merge_identity_snapshot(obj.author_snapshot, identity_payload)
+        return CommentAuthorSerializer(snapshot).data
+
     def get_replies_count(self, obj):
         """Get count of non-deleted replies"""
         return obj.replies.filter(is_deleted=False).count()
@@ -58,7 +74,7 @@ class CommentSerializer(serializers.ModelSerializer):
         
         content_type = ContentType.objects.get_for_model(Comment)
         return Like.objects.filter(
-            user=request.user,
+            user_identity_id=str(request.user.id),
             content_type=content_type,
             object_id=obj.id
         ).exists()
@@ -107,7 +123,7 @@ class CommentDetailSerializer(CommentSerializer):
 
 class CommentThreadSerializer(serializers.ModelSerializer):
     """Serializer for comment threads with full hierarchy"""
-    author = CommentAuthorSerializer(read_only=True)
+    author = serializers.SerializerMethodField()
     replies = serializers.SerializerMethodField()
     user_has_liked = serializers.SerializerMethodField()
     
@@ -134,6 +150,18 @@ class CommentThreadSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
     
+    def get_author(self, obj):
+        request = self.context.get('request')
+        authorization = request.headers.get('Authorization', '') if request else ''
+        cache = self.context.setdefault('identity_user_cache', {})
+        identity_payload = get_identity_user_snapshot(
+            obj.author_identity_id,
+            authorization_header=authorization,
+            cache=cache,
+        )
+        snapshot = merge_identity_snapshot(obj.author_snapshot, identity_payload)
+        return CommentAuthorSerializer(snapshot).data
+
     def get_replies(self, obj):
         """Get all replies recursively"""
         if obj.thread_depth >= 5:  # Hard limit for recursion
@@ -153,7 +181,7 @@ class CommentThreadSerializer(serializers.ModelSerializer):
         
         content_type = ContentType.objects.get_for_model(Comment)
         return Like.objects.filter(
-            user=request.user,
+            user_identity_id=str(request.user.id),
             content_type=content_type,
             object_id=obj.id
         ).exists()

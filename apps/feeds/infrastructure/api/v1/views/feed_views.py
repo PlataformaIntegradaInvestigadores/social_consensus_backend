@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes as perm_classes
 from rest_framework.response import Response
@@ -5,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db import models
-from django.contrib.auth import get_user_model
+from django.db.models.expressions import RawSQL
 
 from apps.feeds.domain.entities.feed_post import FeedPost
 from apps.feeds.domain.services.feed_service import FeedService
@@ -19,6 +21,8 @@ from apps.feeds.infrastructure.api.v1.serializers.feed_post_serializers import (
     FeedPostSerializer,
     FeedPostDetailSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class FeedView(generics.GenericAPIView):
@@ -44,14 +48,13 @@ class FeedView(generics.GenericAPIView):
         # Si se especifica un autor, filtrar por posts de ese usuario
         if author:
             try:
-                User = get_user_model()
-                author_user = User.objects.get(id=author)
+                author_user = str(author)
                 
                 # Obtener posts del usuario específico
                 queryset = FeedPost.objects.filter(
-                    author=author_user,
+                    author_identity_id=author_user,
                     is_public=True
-                ).select_related('author').prefetch_related(
+                ).prefetch_related(
                     'post_files', 'comments'
                 ).order_by('-created_at')
                 
@@ -76,7 +79,7 @@ class FeedView(generics.GenericAPIView):
                 if has_next and posts:
                     next_cursor = posts[-1].created_at.isoformat()
                 
-            except User.DoesNotExist:
+            except Exception:
                 # Usuario no existe, retornar lista vacía
                 posts = []
                 has_next = False
@@ -95,12 +98,14 @@ class FeedView(generics.GenericAPIView):
             elif feed_type == 'trending':
                 posts, has_next, next_cursor = feed_service.get_trending_feed(
                     limit=limit,
-                    cursor=cursor
+                    cursor=cursor,
+                    exclude_user_id=request.user.id
                 )
             else:  # latest
                 posts, has_next, next_cursor = feed_service.get_latest_feed(
                     limit=limit,
-                    cursor=cursor
+                    cursor=cursor,
+                    exclude_user_id=request.user.id
                 )
         
         # Serialize response
@@ -184,10 +189,9 @@ class UserInteractionView(generics.GenericAPIView):
         # Record interaction using service
         feed_service = FeedService()
         feed_service.handle_user_interaction(
-            user=request.user,
-            post=post,
-            interaction_type=interaction_type,
-            metadata=metadata
+            user_id=str(request.user.id),
+            post_id=str(post.id),
+            interaction_type=interaction_type
         )
         
         return Response({
@@ -206,7 +210,10 @@ def trending_posts(request):
     GET: Get trending posts based on engagement
     """
     # Get parameters
-    limit = min(int(request.GET.get('limit', 20)), 50)
+    try:
+        limit = min(max(int(request.GET.get('limit', 20)), 1), 50)
+    except (TypeError, ValueError):
+        limit = 20
     time_range = request.GET.get('time_range', '24h')  # 24h, 7d, 30d
     
     # Calculate time threshold
@@ -221,25 +228,32 @@ def trending_posts(request):
         time_threshold = now - timezone.timedelta(hours=24)
     
     # Calcular horas desde la creación para mostrar en respuesta
-    hours_old_sql = "EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600"
+    hours_old_sql = 'EXTRACT(EPOCH FROM (NOW() - "feeds_feedpost"."created_at")) / 3600'
     
     # Obtener trending score mejorado para ordenamiento
     trending_score_sql = """
         (
             engagement_score * 0.8 + 
-            (engagement_score / GREATEST(1, SQRT(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600))) * 0.2
+            (engagement_score / GREATEST(1, SQRT(EXTRACT(EPOCH FROM (NOW() - "feeds_feedpost"."created_at")) / 3600))) * 0.2
         )
     """
     
-    # Get trending posts con score calculado
-    posts = FeedPost.objects.filter(
-        created_at__gte=time_threshold,
-        is_public=True
-    ).annotate(
-        hours_old=models.RawSQL(hours_old_sql, []),
-        trending_rank=models.RawSQL(trending_score_sql, []),
-        comments_count_real=models.Count('comments', filter=models.Q(comments__is_deleted=False))
-    ).order_by('-trending_rank', '-engagement_score', '-created_at')[:limit]
+    try:
+        # Get trending posts con score calculado
+        posts = list(FeedPost.objects.filter(
+            created_at__gte=time_threshold,
+            is_public=True
+        ).annotate(
+            hours_old=RawSQL(hours_old_sql, []),
+            trending_rank=RawSQL(trending_score_sql, []),
+            comments_count_real=models.Count('comments', filter=models.Q(comments__is_deleted=False))
+        ).prefetch_related('post_files', 'comments').order_by('-trending_rank', '-engagement_score', '-created_at')[:limit])
+    except Exception as exc:
+        logger.exception("Error calculando feed trending; se devuelve feed reciente: %s", exc)
+        posts = list(FeedPost.objects.filter(
+            created_at__gte=time_threshold,
+            is_public=True
+        ).prefetch_related('post_files', 'comments').order_by('-created_at')[:limit])
     
     # Serialize
     serializer = FeedPostDetailSerializer(posts, many=True, context={'request': request})
@@ -248,7 +262,7 @@ def trending_posts(request):
     post_data = serializer.data
     for i, post in enumerate(posts):
         post_data[i]['trending_metadata'] = {
-            'hours_old': round(post.hours_old, 1),
+            'hours_old': round(getattr(post, 'hours_old', (now - post.created_at).total_seconds() / 3600), 1),
             'engagement_score': round(post.engagement_score, 2),
             'trending_rank': round(getattr(post, 'trending_rank', 0), 2)
         }
@@ -271,7 +285,7 @@ def user_feed_stats(request):
     user = request.user
     
     # Get user's posts
-    user_posts = FeedPost.objects.filter(author=user)
+    user_posts = FeedPost.objects.filter(author_identity_id=str(user.id))
     
     # Calculate stats
     stats = {
@@ -353,8 +367,8 @@ class UserPostsView(generics.ListAPIView):
         """Get current user's posts"""
         user = self.request.user
         queryset = FeedPost.objects.filter(
-            author=user
-        ).select_related('author').prefetch_related(
+            author_identity_id=str(user.id)
+        ).prefetch_related(
             'post_files', 'comments'
         ).order_by('-created_at')
         
@@ -393,7 +407,7 @@ class UserPostsView(generics.ListAPIView):
         serializer = self.get_serializer(posts, many=True)
         
         # Calculate total posts count for user
-        total_count = FeedPost.objects.filter(author=request.user).count()
+        total_count = FeedPost.objects.filter(author_identity_id=str(request.user.id)).count()
         
         response_data = {
             'posts': serializer.data,

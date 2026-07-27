@@ -56,7 +56,7 @@ class FeedRequestSerializer(serializers.Serializer):
 
 class UserInteractionSerializer(serializers.Serializer):
     """Serializer for user interactions (view, share, etc.)"""
-    post_id = serializers.IntegerField()
+    post_id = serializers.UUIDField()
     interaction_type = serializers.ChoiceField(
         choices=['view', 'share', 'click', 'save']
     )

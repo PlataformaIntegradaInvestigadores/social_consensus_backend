@@ -16,13 +16,16 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
     SpectacularSwaggerView
+)
+from apps.custom_auth.infrastructure.api.v1.views.retired_legacy_identity_views import (
+    RetiredLegacyIdentityRouteView,
 )
 
 
@@ -33,12 +36,18 @@ urlpatterns = [
     path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     path('api/v1/', include('apps.concensus.infrastructure.api.v1.urls.root_url')),
     path('api/', include('apps.custom_auth.infrastructure.api.v1.urls.root_url')),
+    path('internal/profile-sync/', include('apps.custom_auth.infrastructure.api.v1.urls.profile_sync_url')),
     path('api/v1/', include('apps.jobs.infrastructure.api.v1.urls.jobs_urls')),
     path('api/v1/', include('apps.feeds.infrastructure.api.v1.urls')),
     # path('api/', include('apps.concensus.infrastructure.api.v1.urls.debate_url')),
     
-    # Magic link authentication for testing
-    path('auth/', include('apps.custom_auth.magic_link_urls')),
+    # Autenticacion legacy de investigadores retirada del monolito.
+    re_path(
+        r'^auth/.*$',
+        RetiredLegacyIdentityRouteView.as_view(),
+        {'legacy_route': 'auth/magic-link'},
+        name='retired-magic-link-auth',
+    ),
 ]
 
 if settings.DEBUG:

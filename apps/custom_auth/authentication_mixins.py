@@ -1,8 +1,8 @@
 from rest_framework.authentication import BaseAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from django.contrib.auth.models import AnonymousUser
-from apps.custom_auth.models import User, Company
+from apps.custom_auth.identity_principal import principal_from_token
+from apps.jobs.domain.entities.company import Company
 
 
 class OptionalJWTAuthentication(JWTAuthentication):
@@ -37,14 +37,10 @@ class OptionalJWTAuthentication(JWTAuthentication):
                     pass
             
             # Verificar si el token contiene user_id (investigador)
-            elif 'user_id' in validated_token:
-                user_id = validated_token['user_id']
-                try:
-                    user = User.objects.get(id=user_id)
-                    if user.is_active:
-                        return user
-                except User.DoesNotExist:
-                    pass
+            else:
+                principal = principal_from_token(validated_token)
+                if principal:
+                    return principal
             
             # Si no se encuentra ni usuario ni empresa, lanzar excepción
             raise InvalidToken('No valid user found')

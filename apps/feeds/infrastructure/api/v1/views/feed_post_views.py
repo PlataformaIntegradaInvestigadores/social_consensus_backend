@@ -33,7 +33,7 @@ class FeedPostListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         """Get user's posts"""
         return FeedPost.objects.filter(
-            author=self.request.user
+            author_identity_id=str(self.request.user.id)
         ).order_by('-created_at')
     
     def get_serializer_class(self):
@@ -43,7 +43,6 @@ class FeedPostListCreateView(generics.ListCreateAPIView):
     
     def perform_create(self, serializer):
         """Create post with author"""
-        # Set author before saving
         serializer.validated_data['author'] = self.request.user
         
         # El serializer se encarga de crear el post con archivos y embeddings
@@ -53,7 +52,7 @@ class FeedPostListCreateView(generics.ListCreateAPIView):
         feed_service = FeedService()
         feed_service.update_post_embedding(post.id)
         
-        logger.info(f"Post creado: {post.id} por {self.request.user.username}")
+        logger.info(f"Post creado: {post.id} por {self.request.user}")
         
     def create(self, request, *args, **kwargs):
         """Create post and return full representation"""
@@ -81,7 +80,7 @@ class FeedPostDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        return FeedPost.objects.select_related('author').prefetch_related('post_files', 'comments')
+        return FeedPost.objects.prefetch_related('post_files', 'comments')
     
     def get_object(self):
         """Get post and record view interaction"""
@@ -91,8 +90,8 @@ class FeedPostDetailView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method == 'GET':
             feed_service = FeedService()
             feed_service.handle_user_interaction(
-                user=self.request.user,
-                post=obj,
+                user_id=str(self.request.user.id),
+                post_id=str(obj.id),
                 interaction_type='view'
             )
         
@@ -100,7 +99,7 @@ class FeedPostDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def perform_update(self, serializer):
         """Update post (author only)"""
-        if serializer.instance.author != self.request.user:
+        if serializer.instance.author_identity_id != str(self.request.user.id):
             raise permissions.PermissionDenied("You can only edit your own posts")
         
         # Update embedding if content changed
@@ -111,7 +110,7 @@ class FeedPostDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def perform_destroy(self, instance):
         """Delete post (author only)"""
-        if instance.author != self.request.user:
+        if instance.author_identity_id != str(self.request.user.id):
             raise permissions.PermissionDenied("You can only delete your own posts")
         instance.delete()
 
@@ -132,14 +131,14 @@ class FeedPostFileUploadView(generics.CreateAPIView):
         post = get_object_or_404(FeedPost, id=post_id)
         
         # Check ownership
-        if post.author != request.user:
+        if post.author_identity_id != str(request.user.id):
             return Response(
                 {"error": "You can only add files to your own posts"},
                 status=status.HTTP_403_FORBIDDEN
             )
         
         # Check file limit
-        current_files = post.files.count()
+        current_files = post.post_files.count()
         new_files = request.FILES.getlist('files', [])
         
         if current_files + len(new_files) > 10:
@@ -160,70 +159,81 @@ class FeedPostFileUploadView(generics.CreateAPIView):
 
 class FeedPostSearchView(generics.ListAPIView):
     """
-    Search feed posts using vector similarity and text search
+    Search feed posts using hybrid vector + full-text search.
     
-    GET: Search posts by semantic similarity, content, tags, author
+    GET: Search posts by semantic similarity + keyword relevance.
+    Returns results with scoring breakdown (similarity_score,
+    text_match, relevance_score) for transparency.
     """
     serializer_class = FeedPostSerializer
     permission_classes = [permissions.IsAuthenticated]
     
-    def get_queryset(self):
-        """Search posts using vector similarity or fallback to text search"""
+    def list(self, request, *args, **kwargs):
+        """
+        Override list to inject search-specific scoring fields into the
+        serialized response without needing a separate serializer.
+        """
         from apps.feeds.domain.services.feed_service import FeedService
         
-        # Search parameters
-        query = self.request.query_params.get('q', '')
-        tags = self.request.query_params.getlist('tags', [])
-        author = self.request.query_params.get('author', '')
-        use_vector_search = self.request.query_params.get('vector', 'true').lower() == 'true'
-        limit = int(self.request.query_params.get('limit', '20'))
+        # ── Parámetros de búsqueda ──
+        query = request.query_params.get('q', '')
+        tags = request.query_params.getlist('tags', [])
+        author = request.query_params.get('author', '')
+        use_vector = request.query_params.get('vector', 'true').lower() == 'true'
+        limit = int(request.query_params.get('limit', '20'))
         
         if not query and not tags and not author:
-            return FeedPost.objects.none()
+            return Response([])
         
         feed_service = FeedService()
+        posts = []
         
-        # Si hay query de texto y vector search está habilitado, usar búsqueda vectorial
-        if query and use_vector_search:
+        # ── Búsqueda híbrida vectorial + FTS ──
+        if query and use_vector:
             try:
                 posts = feed_service.search_posts_by_similarity(query, limit=limit)
-                
-                # Filtrar adicionalmente por tags y autor si se especifican
-                if tags or author:
-                    post_ids = [post.id for post in posts]
-                    queryset = FeedPost.objects.filter(id__in=post_ids)
-                    
-                    if tags:
-                        queryset = queryset.filter(tags__overlap=tags)
-                    if author:
-                        queryset = queryset.filter(author__username__icontains=author)
-                    
-                    return queryset.order_by('-created_at')
-                
-                # Retornar como queryset manteniendo el orden
-                if posts:
-                    post_ids = [post.id for post in posts]
-                    preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(post_ids)])
-                    return FeedPost.objects.filter(id__in=post_ids).order_by(preserved)
-                else:
-                    return FeedPost.objects.none()
-                    
             except Exception as e:
                 logger.error(f"Error en búsqueda vectorial, fallback a texto: {str(e)}")
         
-        # Fallback a búsqueda tradicional
-        queryset = FeedPost.objects.filter(is_public=True)
+        # Filtro adicional por tags y autor
+        if posts and (tags or author):
+            if tags:
+                tag_set = set(t.lower() for t in tags)
+                posts = [
+                    p for p in posts
+                    if tag_set & set(t.lower() for t in (p.tags or []))
+                ]
+            if author:
+                posts = [
+                    p for p in posts
+                    if author.lower() in p.author.username.lower()
+                ]
         
-        if query:
-            queryset = queryset.filter(content__icontains=query)
+        # Fallback: búsqueda por texto si no hay resultados vectoriales
+        if not posts and (query or tags or author):
+            qs = FeedPost.objects.filter(is_public=True)
+            if query:
+                qs = qs.filter(content__icontains=query)
+            if tags:
+                qs = qs.filter(tags__overlap=tags)
+            if author:
+                qs = qs.filter(author_snapshot__username__icontains=author)
+            posts = list(qs.order_by('-created_at')[:limit])
         
-        if tags:
-            queryset = queryset.filter(tags__overlap=tags)
+        # ── Serialización con scores de búsqueda ──
+        serializer = self.get_serializer(posts, many=True)
+        results = serializer.data
         
-        if author:
-            queryset = queryset.filter(author__username__icontains=author)
+        for i, post in enumerate(posts):
+            if i < len(results):
+                if hasattr(post, 'relevance_score') and post.relevance_score is not None:
+                    results[i]['relevance_score'] = round(float(post.relevance_score), 4)
+                if hasattr(post, 'similarity') and post.similarity is not None:
+                    results[i]['similarity_score'] = round(float(post.similarity), 4)
+                if hasattr(post, 'text_match') and post.text_match is not None:
+                    results[i]['text_match'] = round(float(post.text_match), 4)
         
-        return queryset.order_by('-created_at')
+        return Response(results)
 
 
 class FeedPostStatsView(generics.RetrieveAPIView):
@@ -240,7 +250,7 @@ class FeedPostStatsView(generics.RetrieveAPIView):
         post = get_object_or_404(FeedPost, id=post_id)
         
         # Check if user can view stats (author only for now)
-        if post.author != request.user:
+        if post.author_identity_id != str(request.user.id):
             return Response(
                 {"error": "You can only view stats for your own posts"},
                 status=status.HTTP_403_FORBIDDEN
@@ -253,7 +263,7 @@ class FeedPostStatsView(generics.RetrieveAPIView):
             'views_count': post.views_count,
             'shares_count': post.shares_count,
             'engagement_score': post.engagement_score,
-            'files_count': post.files.count(),
+            'files_count': post.post_files.count(),
             'created_at': post.created_at,
             'last_interaction': post.metadata.get('last_interaction'),
         }

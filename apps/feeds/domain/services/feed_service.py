@@ -9,18 +9,17 @@ from django.db.models import QuerySet, F, Q, Count
 from django.db.models.expressions import RawSQL
 from django.conf import settings
 from django.utils import timezone
-from django.contrib.auth import get_user_model
 
 # Importar modelos del feed
 from apps.feeds.domain.entities.feed_post import FeedPost
 from apps.feeds.domain.entities.comment import Comment
 from apps.feeds.domain.entities.like import Like
+from apps.custom_auth.identity_principal import ref_from_snapshot, snapshot_from_principal
 
 # Importar servicio de vectores de usuario
 from apps.custom_auth.domain.services.user_vector_service import user_vector_service
 
 logger = logging.getLogger(__name__)
-User = get_user_model()
 
 
 class FeedService:
@@ -85,17 +84,16 @@ class FeedService:
             Instancia del post creado o None si hay error
         """
         try:
-            # Determinar el autor
             if author:
-                author_instance = author
                 author_id = str(author.id)
             elif author_id:
-                author_instance = User.objects.get(id=author_id)
+                author = ref_from_snapshot(str(author_id), {'id': str(author_id)})
             else:
                 raise ValueError("Debe proporcionar author o author_id")
-              # Crear el post
+
             post = FeedPost.objects.create(
-                author=author_instance,
+                author_identity_id=str(author_id),
+                author_snapshot=snapshot_from_principal(author),
                 content=content,
                 tags=tags or [],
                 is_public=is_public
@@ -111,12 +109,9 @@ class FeedService:
                 content=content
             )
             
-            logger.info(f"Post creado: {post.id} por {author_instance.username}")
+            logger.info(f"Post creado: {post.id} por {author_id}")
             return post
             
-        except User.DoesNotExist:
-            logger.error(f"Usuario {author_id} no encontrado")
-            return None
         except Exception as e:
             logger.error(f"Error creando post: {str(e)}")
             return None
@@ -161,9 +156,11 @@ class FeedService:
             text_parts.append("Tags: " + ", ".join(post.tags))
         
         # Agregar información del autor
-        text_parts.append(f"Autor: {post.author.first_name} {post.author.last_name}")
-        if post.author.investigation_camp:
-            text_parts.append(f"Campo: {post.author.investigation_camp}")
+        author_name = post.author.get_full_name() or post.author.username or post.author_identity_id
+        text_parts.append(f"Autor: {author_name}")
+        investigation_camp = post.author_snapshot.get('investigation_camp')
+        if investigation_camp:
+            text_parts.append(f"Campo: {investigation_camp}")
         
         return ". ".join(text_parts)
     
@@ -172,19 +169,15 @@ class FeedService:
         Obtiene feed personalizado basado en el embedding del usuario
         """
         try:
-            # Permitir usar tanto user_id como objeto user
             if user:
-                user_obj = user
-                user_id = user.id
-            else:
-                user_obj = User.objects.get(id=user_id)
+                user_id = str(user.id)
             
             logger.info(f"Obteniendo feed personalizado para usuario {user_id}")
-            
-            if not user_obj.feed_recommendations_embedding:
-                # Si el usuario no tiene embedding, retornar feed trending
-                logger.info(f"Usuario {user_id} sin embedding, retornando feed trending")
-                return self.get_trending_feed(limit, cursor)
+
+            # La identidad canonica ya no vive en social_consensus_backend. Mientras
+            # profile_identity_backend expone embeddings/perfil de intereses por API,
+            # se evita consultar tablas locales de usuario y se usa feed trending.
+            return self.get_trending_feed(limit, cursor, exclude_user_id=user_id)
             
             # Contar posts disponibles
             total_posts = FeedPost.objects.filter(is_public=True).count()
@@ -195,9 +188,9 @@ class FeedService:
             user_embedding = user_obj.feed_recommendations_embedding
             embedding_str = '[' + ','.join(map(str, user_embedding)) + ']'
             
-            # Calcular similitud y score compuesto
-            similarity_sql = f"(1 - (embedding <#> '{embedding_str}'))"
-            hours_old_sql = "EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600"
+            # Calcular similitud y score compuesto (usando <=> para distancia coseno)
+            similarity_sql = f"(1 - (embedding <=> '{embedding_str}'))"
+            hours_old_sql = "EXTRACT(EPOCH FROM (NOW() - \"feeds_feedpost\".\"created_at\")) / 3600"
             
             # Score: 50% similitud + 30% engagement + 20% penalización tiempo
             composite_score_sql = f"""
@@ -209,9 +202,12 @@ class FeedService:
             """
             
             # Primero intentar con posts que tienen embedding y buena similitud
+            # Excluir publicaciones propias del usuario para mejorar la diversidad del feed
             queryset_with_embedding = FeedPost.objects.filter(
                 is_public=True,
                 embedding__isnull=False
+            ).exclude(
+                author_identity_id=user_id
             ).annotate(
                 similarity=RawSQL(similarity_sql, []),
                 hours_old=RawSQL(hours_old_sql, []),
@@ -219,7 +215,7 @@ class FeedService:
                 comments_count_real=models.Count('comments', filter=models.Q(comments__is_deleted=False))
             ).filter(
                 similarity__gte=0.1  # Umbral más bajo y permisivo
-            ).select_related('author').prefetch_related('post_files', 'comments').order_by('-recommendation_score')
+            ).prefetch_related('post_files', 'comments').order_by('-recommendation_score')
             
             # Aplicar cursor si se proporciona
             if cursor:
@@ -232,7 +228,7 @@ class FeedService:
             if len(posts_with_embedding) < limit:
                 logger.info(f"Completando con posts trending (necesitamos {limit - len(posts_with_embedding)} más)")
                 # Obtener posts trending para completar
-                trending_posts, _, _ = self.get_trending_feed(limit * 2, cursor)
+                trending_posts, _, _ = self.get_trending_feed(limit * 2, cursor, exclude_user_id=user_id)
                 
                 # Combinar y evitar duplicados
                 existing_ids = {post.id for post in posts_with_embedding}
@@ -260,21 +256,20 @@ class FeedService:
                 logger.info(f"Feed personalizado con embedding: {len(posts_with_embedding)} posts")
                 return posts_with_embedding, has_next, next_cursor
             
-        except User.DoesNotExist:
-            logger.error(f"Usuario {user_id} no encontrado")
-            return [], False, None
         except Exception as e:
             logger.error(f"Error obteniendo feed personalizado: {str(e)}")
-            return self.get_trending_feed(limit, cursor)
+            import traceback
+            logger.error(traceback.format_exc())
+            return self.get_trending_feed(limit, cursor, exclude_user_id=user_id)
     
-    def get_trending_feed(self, limit: int = 20, cursor: str = None):
+    def get_trending_feed(self, limit: int = 20, cursor: str = None, exclude_user_id: str = None):
         """
         Obtiene posts en tendencia basados en engagement
         """
         try:
             logger.info(f"Obteniendo feed trending con límite: {limit}")
             
-            hours_old_sql = "EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600"
+            hours_old_sql = "EXTRACT(EPOCH FROM (NOW() - \"feeds_feedpost\".\"created_at\")) / 3600"
             
             # Nuevo algoritmo de trending mejorado:
             # 1. Usa el engagement_score ya calculado que incluye el decaimiento logarítmico
@@ -288,11 +283,17 @@ class FeedService:
             
             queryset = FeedPost.objects.filter(
                 is_public=True
-            ).annotate(
+            )
+            
+            # Excluir posts propios del usuario si se especifica
+            if exclude_user_id:
+                queryset = queryset.exclude(author_identity_id=str(exclude_user_id))
+            
+            queryset = queryset.annotate(
                 hours_old=RawSQL(hours_old_sql, []),
                 trending_score=RawSQL(trending_score_sql, []),
                 comments_count_real=Count('comments', filter=models.Q(comments__is_deleted=False))
-            ).select_related('author').prefetch_related('post_files', 'comments').order_by('-trending_score')
+            ).prefetch_related('post_files', 'comments').order_by('-trending_score')
             
             # Contar posts disponibles
             total_count = queryset.count()
@@ -307,7 +308,7 @@ class FeedService:
             # Si no hay posts con engagement score, obtener los más recientes
             if not posts:
                 logger.info("No hay posts trending, obteniendo los más recientes")
-                return self.get_latest_feed(limit, cursor)
+                return self.get_latest_feed(limit, cursor, exclude_user_id=exclude_user_id)
             
             has_next = len(posts) > limit
             
@@ -322,8 +323,9 @@ class FeedService:
             
         except Exception as e:
             logger.error(f"Error obteniendo feed trending: {str(e)}")
-            return self.get_latest_feed(limit, cursor)
-            return [], False, None
+            import traceback
+            logger.error(traceback.format_exc())
+            return self.get_latest_feed(limit, cursor, exclude_user_id=exclude_user_id)
     
     def handle_user_interaction(self, user_id: str, post_id: str, interaction_type: str):
         """
@@ -357,12 +359,18 @@ class FeedService:
         except Exception as e:
             logger.error(f"Error manejando interacción: {str(e)}")
     
-    def create_comment(self, author_id: str, post_id: str, content: str, parent_comment_id: str = None) -> Optional[Comment]:
+    def create_comment(
+        self,
+        author_id: str,
+        post_id: str,
+        content: str,
+        parent_comment_id: str = None,
+        author_snapshot: dict = None,
+    ) -> Optional[Comment]:
         """
         Crea un comentario en un post
         """
         try:
-            author = User.objects.get(id=author_id)
             post = FeedPost.objects.get(id=post_id)
             
             parent_comment = None
@@ -377,7 +385,8 @@ class FeedService:
             # Crear comentario
             comment = Comment.objects.create(
                 post=post,
-                author=author,
+                author_identity_id=str(author_id),
+                author_snapshot=author_snapshot or {'id': str(author_id)},
                 parent_comment=parent_comment,
                 content=content
             )
@@ -391,10 +400,10 @@ class FeedService:
                 content=content
             )
             
-            logger.info(f"Comentario creado: {comment.id} por {author.username}")
+            logger.info(f"Comentario creado: {comment.id} por {author_id}")
             return comment
             
-        except (User.DoesNotExist, FeedPost.DoesNotExist, Comment.DoesNotExist) as e:
+        except (FeedPost.DoesNotExist, Comment.DoesNotExist) as e:
             logger.error(f"Objeto no encontrado: {str(e)}")
             return None
         except Exception as e:
@@ -427,14 +436,20 @@ class FeedService:
             logger.error(f"Error toggleando like en post: {str(e)}")
             return False
     
-    def get_latest_feed(self, limit: int = 20, cursor: str = None):
+    def get_latest_feed(self, limit: int = 20, cursor: str = None, exclude_user_id: str = None):
         """
         Obtiene feed con posts más recientes
         """
         try:
             logger.info(f"Obteniendo feed más reciente con límite: {limit}")
             
-            queryset = FeedPost.objects.filter(is_public=True).order_by('-created_at')
+            queryset = FeedPost.objects.filter(is_public=True)
+            
+            # Excluir posts propios del usuario si se especifica
+            if exclude_user_id:
+                queryset = queryset.exclude(author_identity_id=str(exclude_user_id))
+            
+            queryset = queryset.order_by('-created_at')
             
             # Contar posts disponibles
             total_count = queryset.count()
@@ -468,10 +483,11 @@ class FeedService:
         try:
             # Start with base feed
             if feed_type == 'personalized':
-                posts, _, _ = self.get_personalized_feed(user, limit * 2, cursor)
+                posts, _, _ = self.get_personalized_feed(user=user, limit=limit * 2, cursor=cursor)
                 queryset = FeedPost.objects.filter(id__in=[p.id for p in posts])
             elif feed_type == 'trending':
-                posts, _, _ = self.get_trending_feed(limit * 2, cursor)
+                user_id = user.id if user else None
+                posts, _, _ = self.get_trending_feed(limit * 2, cursor, exclude_user_id=user_id)
                 queryset = FeedPost.objects.filter(id__in=[p.id for p in posts])
             else:
                 queryset = FeedPost.objects.filter(is_public=True)
@@ -481,7 +497,7 @@ class FeedService:
                 queryset = queryset.filter(tags__overlap=filters['tags'])
             
             if filters.get('author_ids'):
-                queryset = queryset.filter(author_id__in=filters['author_ids'])
+                queryset = queryset.filter(author_identity_id__in=[str(author_id) for author_id in filters['author_ids']])
             
             if filters.get('date_from'):
                 queryset = queryset.filter(created_at__gte=filters['date_from'])
@@ -543,103 +559,213 @@ class FeedService:
             logger.error(f"Error toggleando like en comentario: {str(e)}")
             return False
     
-    def search_posts_by_similarity(self, query: str, limit: int = 20, similarity_threshold: float = 0.65) -> List[FeedPost]:
+    def search_posts_by_similarity(self, query: str, limit: int = 20, similarity_threshold: float = 0.4) -> List[FeedPost]:
         """
-        Busca posts usando similitud vectorial semántica con máxima precisión
+        Búsqueda híbrida: similitud vectorial (dense) + full-text search (sparse).
+        
+        Combina embeddings con FTS de PostgreSQL para mejorar relevancia,
+        especialmente en corpora homogéneos donde la similitud coseno tiene
+        poca varianza. Usa stems truncados para matching cross-idioma
+        (e.g., "contin:*" coincide con "continuous" y "continuo").
         
         Args:
-            query: Texto de búsqueda
+            query: Texto de búsqueda (cualquier idioma)
             limit: Número máximo de resultados
-            similarity_threshold: Umbral mínimo de similitud (0.0 a 1.0) - valor alto para mayor precisión
+            similarity_threshold: Umbral mínimo de similitud coseno (0-1)
             
         Returns:
-            Lista de posts ordenados por relevancia semántica
+            Lista de posts ordenados por relevancia híbrida
         """
+        import math
+        
         try:
-            # Limpiar y preprocesar el query de manera menos agresiva
-            cleaned_query = self._preprocess_search_query_conservative(query)
+            cleaned_query = self._preprocess_search_query(query)
             if not cleaned_query or len(cleaned_query.strip()) < 2:
-                logger.warning(f"Query muy corto o vacío después de limpieza: '{query}' -> '{cleaned_query}'")
+                logger.warning(f"Query vacío después de limpieza: '{query}'")
                 return []
             
-            # Obtener embedding del query de búsqueda
-            query_embedding = self.get_embedding_from_microservice(cleaned_query)
+            # ── Paso 1: embedding + texto traducido del microservicio ──
+            query_embedding = None
+            processed_text = cleaned_query
+            
+            try:
+                payload = {
+                    "text": cleaned_query,
+                    "translate_to_english": True,
+                    "clean_text": True,
+                }
+                resp = requests.post(
+                    f"{self.embedding_service_url}/text-processing/vectorize/",
+                    json=payload, timeout=30,
+                    headers={"Content-Type": "application/json"},
+                )
+                if resp.status_code == 200:
+                    body = resp.json()
+                    query_embedding = body.get("vector")
+                    processed_text = body.get("processed_text", cleaned_query)
+                    logger.info(
+                        f"Búsqueda: '{cleaned_query}' → traducido: '{processed_text}'"
+                    )
+            except requests.RequestException as e:
+                logger.error(f"Error microservicio embeddings: {e}")
             
             if not query_embedding:
-                logger.warning(f"No se pudo generar embedding para query: {cleaned_query}")
-                # Fallback muy limitado y estricto
-                return list(FeedPost.objects.filter(
-                    is_public=True,
-                    content__icontains=cleaned_query
-                ).exclude(content__regex=r'^.{0,20}$')  # Excluir posts muy cortos
-                .order_by('-created_at')[:min(limit // 3, 5)])  # Muy pocos resultados de fallback
+                logger.warning(f"Sin embedding para: {cleaned_query}")
+                return list(
+                    FeedPost.objects.filter(
+                        is_public=True, content__icontains=cleaned_query
+                    )
+                    .exclude(content__regex=r"^.{0,20}$")
+                    .order_by("-created_at")[: min(limit // 3, 5)]
+                )
             
-            # Convertir embedding a string para la consulta SQL
-            embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
+            # ── Paso 2: normalizar embedding (L2) ──
+            norm = math.sqrt(sum(x * x for x in query_embedding))
+            if norm > 0:
+                query_embedding = [x / norm for x in query_embedding]
+            embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
             
-            # Calcular similitud coseno usando operador <#> de pgvector
-            # (1 - (embedding <#> query_embedding)) da la similitud coseno
-            similarity_sql = f"(1 - (embedding <#> '{embedding_str}'))"
+            # ── Paso 3: componentes del score híbrido ──
             
-            # Score que prioriza casi completamente la similitud semántica
+            # 3a. Similitud coseno vectorial
+            similarity_sql = f"(1 - (embedding <=> '{embedding_str}'))"
+            
+            # 3b. Full-Text Search con stems prefix (cross-language)
+            original_kws = [w for w in cleaned_query.lower().split() if len(w) >= 3]
+            english_kws = [w for w in processed_text.lower().split() if len(w) >= 3]
+            
+            # Generar stems: primeros 5 chars → matching cross-idioma
+            # "continuous" → "conti", "continuo" → "conti" (coinciden!)
+            # "deployment" → "deplo", "deploy" → "deplo" (coinciden!)
+            import re as _re
+            all_stems = set()
+            for kw in original_kws + english_kws:
+                # Limpiar primero: solo letras y dígitos
+                clean_kw = _re.sub(r'[^a-z0-9]', '', kw)
+                if len(clean_kw) < 3:
+                    continue
+                stem = clean_kw[: max(4, min(5, len(clean_kw)))]
+                if len(stem) >= 3:
+                    all_stems.add(stem)
+            
+            if all_stems:
+                # tsquery con prefijo: usar formato sin comillas internas
+                # to_tsquery('simple', 'conti:* | deplo:* | dock:*')
+                tsquery_expr = " | ".join([f"{s}:*" for s in all_stems])
+                # Escapar comillas simples en toda la expresión para SQL
+                safe_tsquery = tsquery_expr.replace("'", "''")
+                
+                # Match booleano: ¿el post contiene al menos un stem?
+                fts_match_sql = f"""
+                    CASE WHEN
+                        to_tsvector('simple', COALESCE("feeds_feedpost"."content", ''))
+                        @@ to_tsquery('simple', '{safe_tsquery}')
+                    THEN 1.0 ELSE 0.0 END
+                """
+                
+                # Rank: densidad de coincidencias
+                fts_rank_sql = f"""
+                    ts_rank_cd(
+                        to_tsvector('simple', COALESCE("feeds_feedpost"."content", '')),
+                        to_tsquery('simple', '{safe_tsquery}'),
+                        32
+                    )
+                """
+            else:
+                fts_match_sql = "0"
+                fts_rank_sql = "0"
+            
+            # 3c. Tag matching (keywords completos + stems en tags)
+            all_kw_set = set()
+            for kw in original_kws + english_kws:
+                clean_kw = _re.sub(r'[^a-z0-9]', '', kw)
+                if len(clean_kw) >= 3:
+                    all_kw_set.add(clean_kw)
+            if all_kw_set:
+                tag_parts = []
+                for kw in all_kw_set:
+                    safe_kw = kw.replace("'", "''").lower()
+                    tag_parts.append(
+                        f"""CASE WHEN LOWER("feeds_feedpost"."tags"::text) """
+                        f"""LIKE '%%{safe_kw}%%' THEN 1 ELSE 0 END"""
+                    )
+                tag_boost_sql = (
+                    f"(({' + '.join(tag_parts)})::float / {len(tag_parts)})"
+                )
+            else:
+                tag_boost_sql = "0"
+            
+            # ── Paso 4: score híbrido ──
+            # 40% vector + 30% FTS match + 10% FTS rank + 10% tags + 7% engagement + 3% recency
             score_sql = f"""
                 (
-                    {similarity_sql} * 0.95 +  -- Máximo peso a similitud semántica
-                    (COALESCE(engagement_score, 0) / 1000.0) * 0.03 +  -- Engagement mínimo
-                    (1.0 / (1.0 + EXTRACT(EPOCH FROM (NOW() - created_at)) / 2592000.0)) * 0.02  -- Recencia mínima (30 días)
+                    {similarity_sql} * 0.40 +
+                    {fts_match_sql} * 0.30 +
+                    LEAST({fts_rank_sql} * 10.0, 1.0) * 0.10 +
+                    {tag_boost_sql} * 0.10 +
+                    LEAST(COALESCE("feeds_feedpost"."engagement_score", 0) / 100.0, 1.0) * 0.07 +
+                    (1.0 / (1.0 + EXTRACT(EPOCH FROM (NOW() - "feeds_feedpost"."created_at")) / 2592000.0)) * 0.03
                 )
             """
             
-            # Query principal con filtros muy estrictos
-            queryset = FeedPost.objects.filter(
-                is_public=True,
-                embedding__isnull=False,  # Solo posts que tienen embedding
-                content__isnull=False,    # Solo posts con contenido
-            ).exclude(
-                content__exact='',        # Excluir posts vacíos
-            ).exclude(
-                content__regex=r'^.{0,30}$'  # Excluir posts muy cortos (menos de 30 caracteres)
-            ).annotate(
-                similarity=RawSQL(similarity_sql, []),
-                relevance_score=RawSQL(score_sql, [])
-            ).filter(
-                similarity__gte=similarity_threshold  # Umbral alto por defecto
-            ).select_related('author').prefetch_related('post_files').order_by('-similarity', '-relevance_score')  # Priorizar similitud pura
+            # ── Paso 5: ejecutar query ──
+            queryset = (
+                FeedPost.objects.filter(
+                    is_public=True,
+                    embedding__isnull=False,
+                    content__isnull=False,
+                )
+                .exclude(content__exact="")
+                .exclude(content__regex=r"^.{0,30}$")
+                .annotate(
+                    similarity=RawSQL(similarity_sql, []),
+                    text_match=RawSQL(fts_match_sql if all_stems else "0", []),
+                    text_rank=RawSQL(fts_rank_sql if all_stems else "0", []),
+                    relevance_score=RawSQL(score_sql, []),
+                )
+                .filter(similarity__gte=similarity_threshold)
+                .prefetch_related("post_files")
+                .order_by("-relevance_score")
+            )
             
             posts = list(queryset[:limit])
             
-            logger.info(f"Búsqueda vectorial para '{cleaned_query}': {len(posts)} posts encontrados con similitud >= {similarity_threshold}")
+            logger.info(
+                f"Búsqueda híbrida '{cleaned_query}' (en: '{processed_text}'): "
+                f"{len(posts)} resultados (sim >= {similarity_threshold}, "
+                f"stems: {all_stems})"
+            )
             
-            # Solo si realmente no encontramos nada y el query es específico, bajar el umbral
-            if len(posts) == 0 and similarity_threshold > 0.5 and len(cleaned_query.split()) >= 2:
-                logger.info(f"Sin resultados con umbral alto, intentando con umbral medio para query específico: '{cleaned_query}'")
-                additional_posts = self.search_posts_by_similarity(
-                    query=query, 
-                    limit=min(limit, 10),  # Limitar aún más los resultados con umbral bajo
-                    similarity_threshold=0.5
+            # Fallback: bajar umbral si no hay resultados
+            if not posts and similarity_threshold > 0.2 and len(cleaned_query.split()) >= 2:
+                logger.info(f"Sin resultados con umbral {similarity_threshold}, reintentando con 0.2")
+                return self.search_posts_by_similarity(
+                    query=query,
+                    limit=min(limit, 10),
+                    similarity_threshold=0.2,
                 )
-                posts.extend(additional_posts)
             
-            # Solo fallback a texto si el query es muy simple y no hay resultados vectoriales
-            if len(posts) == 0 and len(cleaned_query.split()) == 1 and len(cleaned_query) > 4:
-                logger.info(f"Sin resultados vectoriales para query simple específico, búsqueda de texto limitada: '{cleaned_query}'")
-                text_search_posts = list(FeedPost.objects.filter(
-                    is_public=True,
-                    content__icontains=cleaned_query
-                ).order_by('-created_at')[:limit // 2])  # Limitar fallback
-                
-                posts.extend(text_search_posts)
+            # Fallback final: búsqueda por texto
+            if not posts:
+                logger.info(f"Sin resultados vectoriales, fallback a texto: '{cleaned_query}'")
+                return list(
+                    FeedPost.objects.filter(
+                        is_public=True, content__icontains=cleaned_query
+                    ).order_by("-created_at")[: limit // 2]
+                )
             
             return posts[:limit]
             
         except Exception as e:
-            logger.error(f"Error en búsqueda vectorial: {str(e)}")
-            # Fallback mínimo con query limpio
+            logger.error(f"Error en búsqueda híbrida: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
             cleaned_query = self._preprocess_search_query(query)
-            return list(FeedPost.objects.filter(
-                is_public=True,
-                content__icontains=cleaned_query
-            ).order_by('-created_at')[:limit // 2])  # Limitar resultados de fallback
+            return list(
+                FeedPost.objects.filter(
+                    is_public=True, content__icontains=cleaned_query
+                ).order_by("-created_at")[: limit // 2]
+            )
     
     def _preprocess_search_query(self, query: str) -> str:
         """

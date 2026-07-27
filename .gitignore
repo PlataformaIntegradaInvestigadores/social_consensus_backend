@@ -1,5 +1,6 @@
 # Entornos virtuales
 .env
+.env_produccion*
 venv/
 env/
 myenv/
@@ -12,14 +13,14 @@ __pycache__/
 # Archivos y directorios específicos del proyecto
 post_files/
 static/
-migrations/
-
-# Ignorar directorios de migraciones dentro del directorio apps
-apps/*/migrations/
-apps/*/migrations/*
+celerybeat-schedule
+celerybeat-schedule.*
 
 # Ignorar todo el contenido del directorio profile_pictures
 apps/media/profile_pictures/*
 
 # Pero no ignorar este archivo específico
 !apps/media/profile_pictures/default_profile_picture.png
+
+# Archivos multimedia subidos en ejecucion
+apps/media/feed_posts/*

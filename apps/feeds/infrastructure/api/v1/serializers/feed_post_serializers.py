@@ -1,14 +1,42 @@
 from rest_framework import serializers
+import json
+
 from apps.feeds.domain.entities.feed_post import FeedPost
 from apps.feeds.domain.entities.post_file import PostFile
 from apps.feeds.domain.entities.poll import Poll
-from apps.custom_auth.domain.entities.user import User
+from apps.custom_auth.identity_profile_client import (
+    get_identity_user_snapshot,
+    merge_identity_snapshot,
+)
+from apps.custom_auth.identity_principal import snapshot_from_principal
 from .poll_serializers import PollSerializer
+
+
+class RelativeFileField(serializers.FileField):
+    def to_representation(self, value):
+        if not value:
+            return None
+        try:
+            return value.url
+        except ValueError:
+            return None
+
+
+class RelativeImageField(serializers.ImageField):
+    def to_representation(self, value):
+        if not value:
+            return None
+        try:
+            return value.url
+        except ValueError:
+            return None
 
 
 class PostFileSerializer(serializers.ModelSerializer):
     """Serializer for post file attachments"""
-    
+
+    file = RelativeFileField(read_only=True)
+
     class Meta:
         model = PostFile
         fields = [
@@ -23,19 +51,63 @@ class PostFileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'file_size', 'original_filename', 'uploaded_at']
 
 
-class AuthorSerializer(serializers.ModelSerializer):
+class AuthorSerializer(serializers.Serializer):
     """Minimal user serializer for post authors"""
-    
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture']
-        read_only_fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture']
+
+    id = serializers.CharField(read_only=True)
+    username = serializers.CharField(read_only=True, allow_blank=True)
+    first_name = serializers.CharField(read_only=True, allow_blank=True)
+    last_name = serializers.CharField(read_only=True, allow_blank=True)
+    profile_picture = serializers.CharField(read_only=True, allow_blank=True)
+
+
+class FlexibleTagsField(serializers.Field):
+    """Accept tags from JSON payloads and multipart FormData."""
+
+    default_error_messages = {
+        'invalid': 'Tags must be a JSON array or a comma-separated string.',
+        'not_list': 'Tags must be a list of text values.',
+    }
+
+    def to_internal_value(self, data):
+        if data in (None, ''):
+            return []
+
+        if isinstance(data, str):
+            data = data.strip()
+            if not data:
+                return []
+            if data.startswith('['):
+                try:
+                    data = json.loads(data)
+                except json.JSONDecodeError:
+                    try:
+                        data = json.loads(data.replace('\\"', '"'))
+                    except json.JSONDecodeError:
+                        self.fail('invalid')
+            else:
+                data = [tag.strip() for tag in data.split(',') if tag.strip()]
+
+        if not isinstance(data, list):
+            self.fail('not_list')
+
+        cleaned_tags = []
+        for tag in data:
+            if not isinstance(tag, str):
+                self.fail('not_list')
+            normalized_tag = tag.strip()
+            if normalized_tag:
+                cleaned_tags.append(normalized_tag)
+        return cleaned_tags
+
+    def to_representation(self, value):
+        return value or []
 
 
 class FeedPostSerializer(serializers.ModelSerializer):
     """Basic feed post serializer"""
-    author = AuthorSerializer(read_only=True)
-    files = PostFileSerializer(source='post_files', many=True, read_only=True)
+    author = serializers.SerializerMethodField()
+    files = serializers.SerializerMethodField()
     poll = PollSerializer(read_only=True)
     is_liked = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
@@ -72,6 +144,18 @@ class FeedPostSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
     
+    def get_author(self, obj):
+        request = self.context.get('request')
+        authorization = request.headers.get('Authorization', '') if request else ''
+        cache = self.context.setdefault('identity_user_cache', {})
+        identity_payload = get_identity_user_snapshot(
+            obj.author_identity_id,
+            authorization_header=authorization,
+            cache=cache,
+        )
+        snapshot = merge_identity_snapshot(obj.author_snapshot, identity_payload)
+        return AuthorSerializer(snapshot).data
+
     def get_is_liked(self, obj):
         """Check if current user has liked this post"""
         request = self.context.get('request')
@@ -81,7 +165,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
             
             content_type = ContentType.objects.get_for_model(obj)
             return Like.objects.filter(
-                user=request.user,
+                user_identity_id=str(request.user.id),
                 content_type=content_type,
                 object_id=obj.id
             ).exists()
@@ -93,9 +177,21 @@ class FeedPostSerializer(serializers.ModelSerializer):
             return obj.comments_count_real
         return obj.comments.filter(is_deleted=False).count()
 
+    def get_files(self, obj):
+        """Return only media files that still exist in storage."""
+        existing_files = []
+        for post_file in obj.post_files.all():
+            try:
+                if post_file.file and post_file.file.storage.exists(post_file.file.name):
+                    existing_files.append(post_file)
+            except OSError:
+                continue
+        return PostFileSerializer(existing_files, many=True, context=self.context).data
+
 
 class FeedPostCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating feed posts"""
+    tags = FlexibleTagsField(required=False, default=list)
     files = serializers.ListField(
         child=serializers.FileField(),
         required=False,
@@ -173,9 +269,9 @@ class FeedPostCreateSerializer(serializers.ModelSerializer):
     def validate_content(self, value):
         """Validate post content"""
         if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("Content cannot be empty")
+            raise serializers.ValidationError("La descripción de la publicación es obligatoria.")
         if len(value) > 5000:
-            raise serializers.ValidationError("Content cannot exceed 5000 characters")
+            raise serializers.ValidationError("La descripción no puede superar los 5000 caracteres.")
         return value.strip()
     
     def validate_files(self, value):
@@ -184,15 +280,15 @@ class FeedPostCreateSerializer(serializers.ModelSerializer):
             return value
             
         if len(value) > 10:
-            raise serializers.ValidationError("Cannot upload more than 10 files per post")
+            raise serializers.ValidationError("No se pueden subir más de 10 archivos por publicación.")
         
         total_size = sum(f.size for f in value)
         if total_size > 50 * 1024 * 1024:  # 50MB total limit
-            raise serializers.ValidationError("Total file size cannot exceed 50MB")
+            raise serializers.ValidationError("El tamaño total de los archivos no puede superar 50 MB.")
         
         for file in value:
             if file.size > 10 * 1024 * 1024:  # 10MB per file
-                raise serializers.ValidationError("Individual file size cannot exceed 10MB")
+                raise serializers.ValidationError("Cada archivo debe pesar como máximo 10 MB.")
         
         return value
     
@@ -203,9 +299,24 @@ class FeedPostCreateSerializer(serializers.ModelSerializer):
         
         files_data = validated_data.pop('files', [])
         poll_data = validated_data.pop('poll_data', None)
+        author = validated_data.pop('author', None)
         
         logger.info(f"Creating post with poll_data: {poll_data}")
-        
+
+        if author is not None:
+            request = self.context.get('request')
+            authorization = request.headers.get('Authorization', '') if request else ''
+            identity_payload = get_identity_user_snapshot(
+                getattr(author, 'id', ''),
+                authorization_header=authorization,
+                cache=self.context.setdefault('identity_user_cache', {}),
+            )
+            validated_data['author_identity_id'] = str(author.id)
+            validated_data['author_snapshot'] = merge_identity_snapshot(
+                snapshot_from_principal(author),
+                identity_payload,
+            )
+
         post = FeedPost.objects.create(**validated_data)
         
         # Create file attachments
@@ -311,7 +422,7 @@ class FeedPostDetailSerializer(FeedPostSerializer):
         
         content_type = ContentType.objects.get_for_model(FeedPost)
         return Like.objects.filter(
-            user=request.user,
+            user_identity_id=str(request.user.id),
             content_type=content_type,
             object_id=obj.id
         ).exists()

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
-from apps.custom_auth.models import Company
+from apps.jobs.domain.entities.company import Company
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 

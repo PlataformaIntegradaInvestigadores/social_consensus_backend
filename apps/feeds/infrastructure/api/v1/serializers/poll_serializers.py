@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from apps.feeds.domain.entities.poll import Poll, PollOption, PollVote
-from apps.custom_auth.domain.entities.user import User
 
 
 class PollOptionSerializer(serializers.ModelSerializer):
@@ -25,7 +24,7 @@ class PollOptionSerializer(serializers.ModelSerializer):
             return False
         
         return PollVote.objects.filter(
-            user=request.user,
+            user_identity_id=str(request.user.id),
             option=obj
         ).exists()
 
@@ -70,7 +69,7 @@ class PollSerializer(serializers.ModelSerializer):
             return False
         
         return PollVote.objects.filter(
-            user=request.user,
+            user_identity_id=str(request.user.id),
             poll=obj
         ).exists()
     
@@ -81,7 +80,7 @@ class PollSerializer(serializers.ModelSerializer):
             return []
         
         votes = PollVote.objects.filter(
-            user=request.user,
+            user_identity_id=str(request.user.id),
             poll=obj
         ).values_list('option_id', flat=True)
         
@@ -181,7 +180,7 @@ class PollVoteSerializer(serializers.ModelSerializer):
         # Verificar si ya votó (para encuestas de opción única)
         if not poll.is_multiple_choice:
             existing_vote = PollVote.objects.filter(
-                user=user,
+                user_identity_id=str(user.id),
                 poll=poll
             ).exists()
             
@@ -190,7 +189,7 @@ class PollVoteSerializer(serializers.ModelSerializer):
         else:
             # Para multiple choice, verificar que no vote la misma opción dos veces
             existing_vote = PollVote.objects.filter(
-                user=user,
+                user_identity_id=str(user.id),
                 option=option
             ).exists()
             
@@ -201,6 +200,9 @@ class PollVoteSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Crea el voto"""
-        validated_data['user'] = self.context['request'].user
+        request_user = self.context['request'].user
+        validated_data['user_identity_id'] = str(request_user.id)
+        from apps.custom_auth.identity_principal import snapshot_from_principal
+        validated_data['user_snapshot'] = snapshot_from_principal(request_user)
         validated_data['poll'] = validated_data['option'].poll
         return super().create(validated_data)
