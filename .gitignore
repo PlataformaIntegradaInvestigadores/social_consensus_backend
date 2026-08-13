@@ -24,3 +24,6 @@ apps/media/profile_pictures/*
 
 # Archivos multimedia subidos en ejecucion
 apps/media/feed_posts/*
+
+# Agent configuration (local only, not committed)
+AGENTS.md
