@@ -4,7 +4,9 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-from django.db.models import Case, When
+from django.db import connection
+from django.db.models import BooleanField, Case, When
+from django.db.models.expressions import RawSQL
 import logging
 
 from apps.feeds.domain.entities.feed_post import FeedPost
@@ -18,6 +20,65 @@ from apps.feeds.infrastructure.api.v1.serializers.feed_post_serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_search_tag(tag):
+    """Return the canonical value used only for tag comparisons."""
+    return str(tag).strip().lstrip('#').strip().casefold()
+
+
+def _parse_search_tags(query_params):
+    """Accept repeated and legacy comma-separated ``tags`` parameters."""
+    normalized_tags = []
+    seen = set()
+
+    for raw_value in query_params.getlist('tags', []):
+        for raw_tag in raw_value.split(','):
+            tag = _normalize_search_tag(raw_tag)
+            if tag and tag not in seen:
+                seen.add(tag)
+                normalized_tags.append(tag)
+
+    return normalized_tags
+
+
+def _post_matches_any_tag(post, normalized_tags):
+    """Check tag intersection for results already loaded into memory."""
+    post_tags = {
+        _normalize_search_tag(tag)
+        for tag in (post.tags or [])
+        if _normalize_search_tag(tag)
+    }
+    return bool(post_tags.intersection(normalized_tags))
+
+
+def _filter_queryset_by_tags(queryset, normalized_tags):
+    """Filter a JSON array of tags case-insensitively using PostgreSQL."""
+    if not normalized_tags:
+        return queryset
+
+    table_name = connection.ops.quote_name(queryset.model._meta.db_table)
+    matches_tags_sql = f"""
+        EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements_text(
+                CASE
+                    WHEN jsonb_typeof({table_name}."tags") = 'array'
+                    THEN {table_name}."tags"
+                    ELSE '[]'::jsonb
+                END
+            ) AS stored_tag(value)
+            WHERE LOWER(BTRIM(stored_tag.value)) = ANY(%s::text[])
+        )
+    """
+
+    return queryset.annotate(
+        matches_requested_tags=RawSQL(
+            matches_tags_sql,
+            (normalized_tags,),
+            output_field=BooleanField(),
+        )
+    ).filter(matches_requested_tags=True)
 
 
 class FeedPostListCreateView(generics.ListCreateAPIView):
@@ -177,7 +238,7 @@ class FeedPostSearchView(generics.ListAPIView):
         
         # ── Parámetros de búsqueda ──
         query = request.query_params.get('q', '')
-        tags = request.query_params.getlist('tags', [])
+        tags = _parse_search_tags(request.query_params)
         author = request.query_params.get('author', '')
         use_vector = request.query_params.get('vector', 'true').lower() == 'true'
         limit = int(request.query_params.get('limit', '20'))
@@ -198,10 +259,9 @@ class FeedPostSearchView(generics.ListAPIView):
         # Filtro adicional por tags y autor
         if posts and (tags or author):
             if tags:
-                tag_set = set(t.lower() for t in tags)
                 posts = [
                     p for p in posts
-                    if tag_set & set(t.lower() for t in (p.tags or []))
+                    if _post_matches_any_tag(p, tags)
                 ]
             if author:
                 posts = [
@@ -215,7 +275,7 @@ class FeedPostSearchView(generics.ListAPIView):
             if query:
                 qs = qs.filter(content__icontains=query)
             if tags:
-                qs = qs.filter(tags__overlap=tags)
+                qs = _filter_queryset_by_tags(qs, tags)
             if author:
                 qs = qs.filter(author_snapshot__username__icontains=author)
             posts = list(qs.order_by('-created_at')[:limit])

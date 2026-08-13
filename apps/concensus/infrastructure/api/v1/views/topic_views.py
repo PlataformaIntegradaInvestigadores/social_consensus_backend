@@ -9,6 +9,7 @@ from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.concensus.domain.default_topics import DEFAULT_RECOMMENDED_TOPICS
 from apps.concensus.domain.entities.final_topic_order import FinalTopicOrder
 from apps.concensus.domain.entities.notification import NotificationPhaseOne
 from apps.concensus.domain.entities.topic import RecommendedTopic, Topic, TopicAddedUser
@@ -75,7 +76,36 @@ class RandomRecommendedTopicView(generics.ListAPIView):
 
         queryset = RecommendedTopic.objects.filter(group_identity_id__isnull=True)
         sampled_queryset = random.sample(list(queryset), min(len(queryset), 5))
+
+        if group_id and len(sampled_queryset) < 5:
+            sampled_queryset.extend(
+                self._create_fallback_topics(
+                    group_id,
+                    excluded_names={topic.topic_name for topic in sampled_queryset},
+                    count=5 - len(sampled_queryset),
+                )
+            )
+
         return sorted(sampled_queryset, key=lambda topic: topic.topic_name)
+
+    @staticmethod
+    def _create_fallback_topics(group_id, excluded_names, count):
+        """Crea los tópicos que antes dependían de datos precargados en la BD."""
+        candidates = [
+            topic_name
+            for topic_name in DEFAULT_RECOMMENDED_TOPICS
+            if topic_name not in excluded_names
+        ]
+        selected_names = random.sample(candidates, min(len(candidates), count))
+
+        return RecommendedTopic.objects.bulk_create([
+            RecommendedTopic(
+                topic_name=topic_name,
+                group_identity_id=str(group_id),
+                group_snapshot=_group_snapshot(group_id),
+            )
+            for topic_name in selected_names
+        ])
 
     def _get_grs_topics(self, group_id):
         """Si algún miembro del grupo (resuelto vía profile_identity_backend,

@@ -92,12 +92,15 @@ class FlexibleTagsField(serializers.Field):
             self.fail('not_list')
 
         cleaned_tags = []
+        seen_tags = set()
         for tag in data:
             if not isinstance(tag, str):
                 self.fail('not_list')
-            normalized_tag = tag.strip()
-            if normalized_tag:
-                cleaned_tags.append(normalized_tag)
+            cleaned_tag = tag.strip().lstrip('#').strip()
+            normalized_tag = cleaned_tag.casefold()
+            if cleaned_tag and normalized_tag not in seen_tags:
+                seen_tags.add(normalized_tag)
+                cleaned_tags.append(cleaned_tag)
         return cleaned_tags
 
     def to_representation(self, value):
@@ -106,6 +109,7 @@ class FlexibleTagsField(serializers.Field):
 
 class FeedPostSerializer(serializers.ModelSerializer):
     """Basic feed post serializer"""
+    tags = FlexibleTagsField(required=False)
     author = serializers.SerializerMethodField()
     files = serializers.SerializerMethodField()
     poll = PollSerializer(read_only=True)

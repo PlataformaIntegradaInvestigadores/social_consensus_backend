@@ -4,6 +4,18 @@ from apps.jobs.domain.entities.company import Company
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 
+class RelativeImageField(serializers.ImageField):
+    """Return a gateway-safe path instead of an origin inferred by Django."""
+
+    def to_representation(self, value):
+        if not value:
+            return None
+        try:
+            return value.url
+        except ValueError:
+            return None
+
+
 class CompanyListSerializer(serializers.ModelSerializer):
     industry_display = serializers.CharField(source='get_industry_display_name', read_only=True)
     
@@ -53,6 +65,7 @@ class CompanyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class CompanySerializer(serializers.ModelSerializer):
     industry_display = serializers.CharField(source='get_industry_display_name', read_only=True)
+    logo = RelativeImageField(required=False, allow_null=True)
     
     class Meta:
         model = Company
@@ -115,6 +128,7 @@ class CompanyRegisterSerializer(serializers.ModelSerializer):
 class CompanyProfileSerializer(serializers.ModelSerializer):
     """Serializador para mostrar el perfil completo de la empresa."""
     industry_display = serializers.CharField(source='get_industry_display_name', read_only=True)
+    logo = RelativeImageField(required=False, allow_null=True)
     
     class Meta:
         model = Company

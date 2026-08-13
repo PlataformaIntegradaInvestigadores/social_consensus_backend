@@ -5,8 +5,6 @@ from apps.custom_auth.infrastructure.api.v1.views.company_views import (
     CompanyDetailView,
     CompanyListView,
     CompanyProfileView,
-    CompanyRegisterView,
-    CompanyTokenObtainPairView,
     CompanyUpdateView,
 )
 from apps.custom_auth.infrastructure.api.v1.views.retired_legacy_identity_views import (
@@ -38,9 +36,20 @@ urlpatterns = [
         name="retired-groups",
     ),
 
-    # Empresas siguen perteneciendo al backend social durante esta iteracion.
-    path("companies/token/", CompanyTokenObtainPairView.as_view(), name="company_token_obtain_pair"),
-    path("companies/register/", CompanyRegisterView.as_view(), name="company_register"),
+    # La autenticacion y el alta de cuentas empresariales son canonicas en Identidad.
+    path(
+        "companies/token/",
+        retired_identity_view,
+        {"legacy_route": "companies/token/"},
+        name="retired-company-token-obtain-pair",
+    ),
+    path(
+        "companies/register/",
+        retired_identity_view,
+        {"legacy_route": "companies/register/"},
+        name="retired-company-register",
+    ),
+    # El perfil empresarial y Jobs permanecen en el backend social.
     path("companies/", CompanyListView.as_view(), name="company-list"),
     path("companies/profile/", CompanyProfileView.as_view(), name="company-profile"),
     path("companies/choices/", CompanyChoicesView.as_view(), name="company-choices"),
