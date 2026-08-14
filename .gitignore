@@ -28,3 +28,6 @@ apps/media/feed_posts/*
 # Archivos de usuarios subidos en ejecucion (PII: CVs, logos de empresa)
 apps/media/resumes/*
 apps/media/company_logos/*
+
+# Agent configuration (local only, not committed)
+AGENTS.md
