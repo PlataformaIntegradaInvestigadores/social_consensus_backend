@@ -3,11 +3,11 @@ from django.urls import resolve
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
-from apps.custom_auth.infrastructure.api.v1.views.retired_legacy_identity_views import (
-    RetiredLegacyIdentityRouteView,
-)
 from apps.custom_auth.infrastructure.api.v1.serializers.company_serializer import (
     CompanyProfileSerializer,
+)
+from apps.custom_auth.infrastructure.api.v1.views.retired_legacy_identity_views import (
+    RetiredLegacyIdentityRouteView,
 )
 from apps.jobs.domain.entities.company import Company
 
@@ -34,7 +34,9 @@ class RetiredLegacyIdentityRoutesTests(SimpleTestCase):
             with self.subTest(path=path, method=method):
                 response = getattr(self.client, method)(path, {}, format="json")
                 self.assertEqual(response.status_code, status.HTTP_410_GONE)
-                self.assertEqual(response.data["canonical_service"], "profile_identity_backend")
+                self.assertEqual(
+                    response.data["canonical_service"], "profile_identity_backend"
+                )
 
     def test_magic_link_legacy_auth_is_retired(self):
         response = self.client.get("/auth/magic-link/")

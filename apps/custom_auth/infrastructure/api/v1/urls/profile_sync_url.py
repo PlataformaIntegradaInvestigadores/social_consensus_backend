@@ -7,7 +7,6 @@ from apps.custom_auth.infrastructure.api.v1.views.company_identity_sync_views im
     CompanyIdentitySyncView,
 )
 
-
 urlpatterns = [
     path(
         "company-identities/",

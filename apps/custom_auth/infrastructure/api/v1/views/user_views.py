@@ -2,7 +2,6 @@ from apps.custom_auth.infrastructure.api.v1.views.retired_legacy_identity_views 
     RetiredLegacyIdentityRouteView,
 )
 
-
 UserListView = RetiredLegacyIdentityRouteView
 UserUpdateView = RetiredLegacyIdentityRouteView
 UserTokenObtainPairView = RetiredLegacyIdentityRouteView
