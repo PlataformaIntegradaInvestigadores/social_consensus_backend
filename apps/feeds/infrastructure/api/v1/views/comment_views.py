@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from apps.custom_auth.identity_principal import snapshot_from_principal
@@ -119,24 +120,24 @@ class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
         # Don't show deleted comments to non-authors
         if obj.is_deleted and obj.author_identity_id != str(self.request.user.id):
-            raise permissions.PermissionDenied("Comment not found")
+            raise PermissionDenied("Comment not found")
 
         return obj
 
     def perform_update(self, serializer):
         """Update comment (author only)"""
         if serializer.instance.author_identity_id != str(self.request.user.id):
-            raise permissions.PermissionDenied("You can only edit your own comments")
+            raise PermissionDenied("You can only edit your own comments")
 
         if serializer.instance.is_deleted:
-            raise permissions.PermissionDenied("Cannot edit deleted comment")
+            raise PermissionDenied("Cannot edit deleted comment")
 
         serializer.save()
 
     def perform_destroy(self, instance):
         """Soft delete comment (author only)"""
         if instance.author_identity_id != str(self.request.user.id):
-            raise permissions.PermissionDenied("You can only delete your own comments")
+            raise PermissionDenied("You can only delete your own comments")
 
         # Soft delete
         instance.soft_delete()
@@ -188,11 +189,11 @@ class CommentRepliesView(generics.ListCreateAPIView):
         parent_comment = get_object_or_404(Comment, id=comment_id)
 
         if parent_comment.is_deleted:
-            raise permissions.PermissionDenied("Cannot reply to deleted comment")
+            raise PermissionDenied("Cannot reply to deleted comment")
 
         # Check thread depth limit
-        if parent_comment.thread_depth >= 5:
-            raise permissions.PermissionDenied("Maximum reply depth reached")
+        if parent_comment.get_level() >= 5:
+            raise PermissionDenied("Maximum reply depth reached")
         identity_payload = get_identity_user_snapshot(
             self.request.user.id,
             authorization_header=self.request.headers.get("Authorization", ""),

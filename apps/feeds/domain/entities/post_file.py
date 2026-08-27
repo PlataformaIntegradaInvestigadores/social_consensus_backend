@@ -88,7 +88,17 @@ class PostFile(models.Model):
         return round(self.file_size / (1024 * 1024), 2)
 
     def save(self, *args, **kwargs):
+        # Guardar tamaño del archivo
+        if self.file and not self.file_size:
+            self.file_size = self.file.size
+
+        # Guardar nombre original
+        if self.file and not self.original_filename:
+            self.original_filename = self.file.name
+
         # Auto-detectar tipo de archivo si no se especifica
+        # (debe ir despues de fijar original_filename, de la que depende
+        # get_file_extension())
         if not self.file_type and self.file:
             ext = self.get_file_extension()
             if ext in [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"]:
@@ -101,13 +111,5 @@ class PostFile(models.Model):
                 self.file_type = "audio"
             else:
                 self.file_type = "other"
-
-        # Guardar tamaño del archivo
-        if self.file and not self.file_size:
-            self.file_size = self.file.size
-
-        # Guardar nombre original
-        if self.file and not self.original_filename:
-            self.original_filename = self.file.name
 
         super().save(*args, **kwargs)

@@ -20,18 +20,8 @@ env:
 
 jobs:
   branch-name:
-    name: Validar nombre de rama
-    runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-    steps:
-      - name: Verificar prefijo (feature/*, hotfix/*, chore/*)
-        env:
-          BRANCH: ${{ github.head_ref }}
-        run: |
-          case "$BRANCH" in
-            feature/*|hotfix/*|chore/*) echo "OK: $BRANCH"; exit 0 ;;
-            *) echo "Rama '$BRANCH' no cumple convención (feature/*, hotfix/*, chore/*)"; exit 1 ;;
-          esac
+    uses: PlataformaIntegradaInvestigadores/.github/.github/workflows/branch-name.yml@main
 
   # ── Unitarios ──────────────────────────────────────────────────────────────
   test-unit:
@@ -51,7 +41,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -64,7 +54,7 @@ jobs:
             --junitxml=report-unit.xml \
             --cov=apps --cov-report=term --cov-report=xml:coverage-unit.xml
       - name: Subir resultados
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: unit-test-results
@@ -95,7 +85,7 @@ jobs:
         ports: ["6379:6379"]
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -108,7 +98,7 @@ jobs:
             --junitxml=report-integration.xml \
             --cov=apps --cov-report=term --cov-report=xml:coverage-integration.xml
       - name: Subir resultados
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: integration-test-results
@@ -123,7 +113,7 @@ jobs:
     needs: test-integration
     if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build imagen
         run: docker build -t social_consensus_backend:${{ github.sha }} .
       - name: Verificar imagen

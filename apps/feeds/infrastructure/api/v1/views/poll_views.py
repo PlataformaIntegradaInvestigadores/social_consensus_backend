@@ -1,6 +1,7 @@
 import logging
 
 from django.db import transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -109,6 +110,8 @@ def vote_poll(request, poll_id):
             status=status.HTTP_200_OK,
         )
 
+    except Http404:
+        raise
     except Exception as e:
         logger.error(f"Error al votar en encuesta {poll_id}: {str(e)}")
         return Response(
@@ -160,6 +163,8 @@ def remove_vote(request, poll_id):
             status=status.HTTP_200_OK,
         )
 
+    except Http404:
+        raise
     except Exception as e:
         logger.error(f"Error al eliminar voto en encuesta {poll_id}: {str(e)}")
         return Response(
@@ -180,6 +185,8 @@ def get_poll_details(request, poll_id):
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    except Http404:
+        raise
     except Exception as e:
         logger.error(f"Error al obtener encuesta {poll_id}: {str(e)}")
         return Response(

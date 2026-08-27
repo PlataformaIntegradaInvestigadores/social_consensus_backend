@@ -7,6 +7,8 @@ from django.apps import apps
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 
+from apps.concensus.domain.entities.result_concensus import ConsensusResult
+
 logger = logging.getLogger(__name__)
 
 
@@ -160,7 +162,6 @@ class ConsensusCalculationByVotingTypeView(generics.GenericAPIView):
 
 
 def _execute_consensus(group_id, voting_type, persist):
-    ConsensusResult = apps.get_model("concensus", "ConsensusResult")
     try:
         topics, topic_names, user_ids, positions_data, expertise_data, labels_data = (
             get_user_data(group_id)

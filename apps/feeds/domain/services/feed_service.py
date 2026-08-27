@@ -8,7 +8,7 @@ from typing import Any
 import requests
 from django.conf import settings
 from django.db import models
-from django.db.models import Count, F
+from django.db.models import Count, F, Q
 from django.db.models.expressions import RawSQL
 
 # Importar servicio de vectores de usuario
@@ -199,109 +199,6 @@ class FeedService:
             # se evita consultar tablas locales de usuario y se usa feed trending.
             return self.get_trending_feed(limit, cursor, exclude_user_id=user_id)
 
-            # Contar posts disponibles
-            total_posts = FeedPost.objects.filter(is_public=True).count()
-            posts_with_embedding = FeedPost.objects.filter(
-                is_public=True, embedding__isnull=False
-            ).count()
-            logger.info(
-                f"Total posts públicos: {total_posts}, Posts con embedding: {posts_with_embedding}"
-            )
-
-            # Usar embedding del usuario para recomendaciones
-            user_embedding = user_obj.feed_recommendations_embedding
-            embedding_str = "[" + ",".join(map(str, user_embedding)) + "]"
-
-            # Calcular similitud y score compuesto (usando <=> para distancia coseno)
-            similarity_sql = f"(1 - (embedding <=> '{embedding_str}'))"
-            hours_old_sql = (
-                'EXTRACT(EPOCH FROM (NOW() - "feeds_feedpost"."created_at")) / 3600'
-            )
-
-            # Score: 50% similitud + 30% engagement + 20% penalización tiempo
-            composite_score_sql = f"""
-                (
-                    0.5 * {similarity_sql} +
-                    0.3 * (engagement_score / 100) -
-                    0.2 * ({hours_old_sql} / 24)
-                )
-            """
-
-            # Primero intentar con posts que tienen embedding y buena similitud
-            # Excluir publicaciones propias del usuario para mejorar la diversidad del feed
-            queryset_with_embedding = (
-                FeedPost.objects.filter(is_public=True, embedding__isnull=False)
-                .exclude(author_identity_id=user_id)
-                .annotate(
-                    similarity=RawSQL(similarity_sql, []),
-                    hours_old=RawSQL(hours_old_sql, []),
-                    recommendation_score=RawSQL(composite_score_sql, []),
-                    comments_count_real=models.Count(
-                        "comments", filter=models.Q(comments__is_deleted=False)
-                    ),
-                )
-                .filter(similarity__gte=0.1)  # Umbral más bajo y permisivo
-                .prefetch_related("post_files", "comments")
-                .order_by("-recommendation_score")
-            )
-
-            # Aplicar cursor si se proporciona
-            if cursor:
-                queryset_with_embedding = queryset_with_embedding.filter(
-                    created_at__lt=cursor
-                )
-
-            posts_with_embedding = list(queryset_with_embedding[: limit + 1])
-            logger.info(
-                f"Posts encontrados con embedding y similitud >= 0.1: {len(posts_with_embedding)}"
-            )
-
-            # Si no encontramos suficientes posts con embedding, mezclar con trending
-            if len(posts_with_embedding) < limit:
-                logger.info(
-                    f"Completando con posts trending (necesitamos {limit - len(posts_with_embedding)} más)"
-                )
-                # Obtener posts trending para completar
-                trending_posts, _, _ = self.get_trending_feed(
-                    limit * 2, cursor, exclude_user_id=user_id
-                )
-
-                # Combinar y evitar duplicados
-                existing_ids = {post.id for post in posts_with_embedding}
-                additional_posts = [
-                    post for post in trending_posts if post.id not in existing_ids
-                ]
-
-                # Mezclar los posts
-                all_posts = posts_with_embedding[:limit] + additional_posts
-                final_posts = all_posts[:limit]
-
-                logger.info(f"Feed final personalizado: {len(final_posts)} posts")
-
-                has_next = len(all_posts) > limit or len(posts_with_embedding) > limit
-                next_cursor = (
-                    final_posts[-1].created_at.isoformat() if final_posts else None
-                )
-
-                return final_posts, has_next, next_cursor
-            else:
-                # Tenemos suficientes posts con embedding
-                has_next = len(posts_with_embedding) > limit
-                if has_next:
-                    posts_with_embedding = posts_with_embedding[:limit]
-                    next_cursor = (
-                        posts_with_embedding[-1].created_at.isoformat()
-                        if posts_with_embedding
-                        else None
-                    )
-                else:
-                    next_cursor = None
-
-                logger.info(
-                    f"Feed personalizado con embedding: {len(posts_with_embedding)} posts"
-                )
-                return posts_with_embedding, has_next, next_cursor
-
         except Exception as e:
             logger.error(f"Error obteniendo feed personalizado: {str(e)}")
             import traceback
@@ -329,7 +226,7 @@ class FeedService:
             trending_score_sql = f"""
                 (
                     engagement_score * 0.8 + 
-                    (engagement_score / GREATEST(1, SQRT({hours_old_sql}))) * 0.2
+                    (engagement_score / SQRT(GREATEST(1, {hours_old_sql}))) * 0.2
                 )
             """
 
@@ -572,7 +469,14 @@ class FeedService:
 
             # Apply filters
             if filters.get("tags"):
-                queryset = queryset.filter(tags__overlap=filters["tags"])
+                # `tags` es un JSONField (no ArrayField): "__overlap" no es un
+                # lookup valido ahi y termina interpretandose como una clave
+                # JSON inexistente, devolviendo siempre 0 resultados. Un OR de
+                # "__contains" por tag replica la semantica de "cualquiera".
+                tags_query = Q()
+                for tag in filters["tags"]:
+                    tags_query |= Q(tags__contains=[tag])
+                queryset = queryset.filter(tags_query)
 
             if filters.get("author_ids"):
                 queryset = queryset.filter(

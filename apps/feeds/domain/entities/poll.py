@@ -110,7 +110,7 @@ class PollVote(models.Model):
         return f"{self.user.username} voted for {self.option.text}"
 
     def save(self, *args, **kwargs):
-        is_new = self.pk is None
+        is_new = self._state.adding
         super().save(*args, **kwargs)
 
         if is_new:

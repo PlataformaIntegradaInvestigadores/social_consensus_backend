@@ -3,7 +3,9 @@ from rest_framework.test import APIClient, APITestCase
 
 from apps.concensus.domain.default_topics import DEFAULT_RECOMMENDED_TOPICS
 from apps.concensus.domain.entities.topic import RecommendedTopic, Topic
-from apps.concensus.infrastructure.api.v1.views.topic_views import RandomRecommendedTopicView
+from apps.concensus.infrastructure.api.v1.views.topic_views import (
+    RandomRecommendedTopicView,
+)
 
 
 class TopicListIntegrationTests(APITestCase):
@@ -58,7 +60,10 @@ class RecommendedTopicFallbackTests(APITestCase):
             all(topic.topic_name in DEFAULT_RECOMMENDED_TOPICS for topic in topics)
         )
         self.assertTrue(
-            all(topic.group_identity_id == "group-without-recommendations" for topic in topics)
+            all(
+                topic.group_identity_id == "group-without-recommendations"
+                for topic in topics
+            )
         )
         self.assertEqual(
             RecommendedTopic.objects.filter(
