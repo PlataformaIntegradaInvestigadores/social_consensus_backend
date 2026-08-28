@@ -16,7 +16,7 @@ from apps.concensus.infrastructure.api.v1.views.result_concensus_views import (
     VotingAlgorithms,
     get_user_data,
 )
-from apps.concensus.testing_utils import mock_channel_layer
+from apps.concensus.tests.testing_utils import mock_channel_layer
 from apps.custom_auth.identity_principal import IdentityPrincipal
 
 CHANNEL_LAYER_PATCH = (

@@ -12,7 +12,7 @@ from apps.concensus.domain.entities.debate import Debate
 from apps.concensus.domain.entities.debate_message import Message
 from apps.concensus.domain.entities.debate_participant_posture import UserPosture
 from apps.concensus.domain.entities.debate_reaction import Reaction
-from apps.concensus.testing_utils import mock_channel_layer
+from apps.concensus.tests.testing_utils import mock_channel_layer
 from apps.custom_auth.identity_principal import IdentityPrincipal
 
 CHANNEL_LAYER_PATCH = (

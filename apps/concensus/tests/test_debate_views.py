@@ -11,7 +11,7 @@ from rest_framework.test import APIClient, APITestCase
 from apps.concensus.domain.entities.debate import Debate
 from apps.concensus.domain.entities.notification import NotificationPhaseOne
 from apps.concensus.infrastructure.api.v1.views.debate_views import send_notification
-from apps.concensus.testing_utils import mock_channel_layer
+from apps.concensus.tests.testing_utils import mock_channel_layer
 from apps.custom_auth.identity_principal import IdentityPrincipal
 
 CHANNEL_LAYER_PATCH = (

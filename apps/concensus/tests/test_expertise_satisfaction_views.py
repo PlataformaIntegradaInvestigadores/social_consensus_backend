@@ -9,7 +9,7 @@ from rest_framework.test import APIClient, APITestCase
 from apps.concensus.domain.entities.topic import RecommendedTopic, TopicAddedUser
 from apps.concensus.domain.entities.user_expertice import UserExpertise
 from apps.concensus.domain.entities.user_satisfaction import UserSatisfaction
-from apps.concensus.testing_utils import mock_channel_layer
+from apps.concensus.tests.testing_utils import mock_channel_layer
 from apps.custom_auth.identity_principal import IdentityPrincipal
 
 EXPERTISE_CHANNEL_PATCH = (

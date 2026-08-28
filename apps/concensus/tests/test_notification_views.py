@@ -11,7 +11,7 @@ from apps.concensus.domain.entities.notification import (
     NotificationPhaseTwo,
 )
 from apps.concensus.domain.entities.topic import RecommendedTopic, TopicAddedUser
-from apps.concensus.testing_utils import mock_channel_layer
+from apps.concensus.tests.testing_utils import mock_channel_layer
 from apps.custom_auth.identity_principal import IdentityPrincipal
 
 CHANNEL_LAYER_PATCH = (

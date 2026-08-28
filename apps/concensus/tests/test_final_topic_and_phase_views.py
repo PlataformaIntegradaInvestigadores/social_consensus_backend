@@ -9,7 +9,7 @@ from rest_framework.test import APIClient, APITestCase
 from apps.concensus.domain.entities.final_topic_order import FinalTopicOrder
 from apps.concensus.domain.entities.topic import RecommendedTopic
 from apps.concensus.domain.entities.user_phase import UserPhase
-from apps.concensus.testing_utils import mock_channel_layer
+from apps.concensus.tests.testing_utils import mock_channel_layer
 from apps.custom_auth.identity_principal import IdentityPrincipal
 
 
