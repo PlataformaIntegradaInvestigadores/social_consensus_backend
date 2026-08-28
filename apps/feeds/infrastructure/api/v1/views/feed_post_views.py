@@ -5,6 +5,7 @@ from django.db.models import BooleanField
 from django.db.models.expressions import RawSQL
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -166,18 +167,20 @@ class FeedPostDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         """Update post (author only)"""
         if serializer.instance.author_identity_id != str(self.request.user.id):
-            raise permissions.PermissionDenied("You can only edit your own posts")
+            raise PermissionDenied("You can only edit your own posts")
+
+        content_changed = "content" in serializer.validated_data
+        post = serializer.save()
 
         # Update embedding if content changed
-        if "content" in serializer.validated_data:
+        if content_changed:
             feed_service = FeedService()
-            post = serializer.save()
             feed_service.update_post_embedding(post.id)
 
     def perform_destroy(self, instance):
         """Delete post (author only)"""
         if instance.author_identity_id != str(self.request.user.id):
-            raise permissions.PermissionDenied("You can only delete your own posts")
+            raise PermissionDenied("You can only delete your own posts")
         instance.delete()
 
 

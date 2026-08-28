@@ -168,83 +168,9 @@ class JobsService:
                 "Usando recomendaciones basicas sin consultar custom_auth.User local"
             )
             return self._get_basic_recommendations(None, limit)
-
-            # Permitir usar tanto user_id como objeto user
-            if user:
-                user_obj = user
-                user_id = str(user.id)
-            else:
-                user_obj = None
-
-            logger.info(
-                f"Obteniendo recomendaciones de trabajos para usuario {user_id}"
-            )
-
-            # Verificar si el usuario tiene embedding para recomendaciones
-            if (
-                hasattr(user_obj, "job_recommendations_embedding")
-                and user_obj.job_recommendations_embedding
-            ):
-                # Usar embedding del usuario para recomendaciones
-                user_embedding = user_obj.job_recommendations_embedding
-                return self._get_vector_based_recommendations(user_embedding, limit)
-            else:
-                # Si no hay embedding, usar recomendaciones básicas
-                logger.info(
-                    f"Usuario {user_id} sin embedding, usando recomendaciones básicas"
-                )
-                return self._get_basic_recommendations(user_obj, limit)
-
-        except NameError:
-            logger.error(f"Usuario {user_id} no encontrado")
-            return Jobs.objects.none()
         except Exception as e:
             logger.error(f"Error obteniendo recomendaciones: {str(e)}")
-            return self._get_basic_recommendations(
-                user_obj if "user_obj" in locals() else None, limit
-            )
-
-    def _get_vector_based_recommendations(
-        self, user_embedding: list[float], limit: int
-    ) -> QuerySet:
-        """
-        Obtiene recomendaciones basadas en similitud de vectores
-        """
-        try:
-            embedding_str = "[" + ",".join(map(str, user_embedding)) + "]"
-
-            # Calcular similitud coseno (1 - distancia coseno)
-            similarity_sql = f"(1 - (embedding <#> '{embedding_str}'))"
-
-            # Score compuesto: similitud + popularidad + recencia
-            hours_old_sql = "EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600"
-
-            composite_score_sql = f"""
-                (
-                    ({similarity_sql}) * 0.6 +
-                    (LEAST(view_count, 100) / 100.0) * 0.2 +
-                    (LEAST(application_count, 50) / 50.0) * 0.1 +
-                    (1.0 / (1.0 + ({hours_old_sql}) / 168.0)) * 0.1
-                )
-            """
-
-            queryset = (
-                Jobs.objects.filter(embedding__isnull=False)
-                .annotate(
-                    similarity=RawSQL(similarity_sql, []),
-                    composite_score=RawSQL(composite_score_sql, []),
-                )
-                .order_by("-composite_score")[:limit]
-            )
-
-            logger.info(
-                f"Recomendaciones vectoriales generadas: {queryset.count()} trabajos"
-            )
-            return queryset
-
-        except Exception as e:
-            logger.error(f"Error en recomendaciones vectoriales: {str(e)}")
-            return Jobs.objects.all().order_by("-created_at")[:limit]
+            return self._get_basic_recommendations(None, limit)
 
     def _get_basic_recommendations(self, user, limit: int) -> QuerySet:
         """

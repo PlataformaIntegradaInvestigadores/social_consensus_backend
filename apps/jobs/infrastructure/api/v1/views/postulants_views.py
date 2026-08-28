@@ -124,6 +124,7 @@ class PostulantsView(APIView):
             )
 
         user = request.user
+        update_data = request.data
         # Solo las compañías pueden actualizar el estado de las postulaciones
         if hasattr(user, "company_name"):
             if postulant.job.company != user:
@@ -140,11 +141,11 @@ class PostulantsView(APIView):
                 )
             # Limitar campos que pueden actualizar
             allowed_fields = ["cover_letter", "resume_file"]
-            data = {k: v for k, v in request.data.items() if k in allowed_fields}
-            request.data.clear()
-            request.data.update(data)
+            update_data = {
+                k: v for k, v in request.data.items() if k in allowed_fields
+            }
 
-        serializer = PostulantsSerializer(postulant, data=request.data, partial=True)
+        serializer = PostulantsSerializer(postulant, data=update_data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)

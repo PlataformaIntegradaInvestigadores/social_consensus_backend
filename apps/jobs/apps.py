@@ -9,3 +9,4 @@ class JobsConfig(AppConfig):
         """
         Importa los signals cuando la app está lista
         """
+        import apps.jobs.infrastructure.signals  # noqa: F401

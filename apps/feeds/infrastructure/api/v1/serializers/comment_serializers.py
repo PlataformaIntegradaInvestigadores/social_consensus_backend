@@ -166,7 +166,7 @@ class CommentThreadSerializer(serializers.ModelSerializer):
 
     def get_replies(self, obj):
         """Get all replies recursively"""
-        if obj.thread_depth >= 5:  # Hard limit for recursion
+        if obj.get_level() >= 5:  # Hard limit for recursion
             return []
 
         replies = obj.replies.filter(is_deleted=False).order_by("created_at")

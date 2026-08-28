@@ -230,7 +230,7 @@ def trending_posts(request):
     trending_score_sql = """
         (
             engagement_score * 0.8 + 
-            (engagement_score / GREATEST(1, SQRT(EXTRACT(EPOCH FROM (NOW() - "feeds_feedpost"."created_at")) / 3600))) * 0.2
+            (engagement_score / SQRT(GREATEST(1, EXTRACT(EPOCH FROM (NOW() - "feeds_feedpost"."created_at")) / 3600))) * 0.2
         )
     """
 
@@ -446,7 +446,7 @@ def explain_post_trending(request, post_id):
     GET: Obtener explicación detallada del algoritmo de trending
     """
     try:
-        post = get_object_or_404(FeedPost, id=post_id)
+        post = FeedPost.objects.get(id=post_id)
 
         # Obtener explicación del algoritmo
         explanation = post.explain_trending_score()

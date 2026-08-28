@@ -15,13 +15,6 @@ from apps.custom_auth.identity_principal import (
 )
 
 
-def get_post_file_path(instance, filename):
-    """Genera ruta para archivos de posts"""
-    ext = filename.split(".")[-1]
-    filename = f"{uuid.uuid4()}.{ext}"
-    return f"feed_posts/{instance.post.id}/{filename}"
-
-
 class FeedPost(models.Model):
     """
     Modelo para posts del feed social

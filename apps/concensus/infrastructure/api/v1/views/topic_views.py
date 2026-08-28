@@ -100,14 +100,16 @@ class RandomRecommendedTopicView(generics.ListAPIView):
         ]
         selected_names = random.sample(candidates, min(len(candidates), count))
 
-        return RecommendedTopic.objects.bulk_create([
-            RecommendedTopic(
-                topic_name=topic_name,
-                group_identity_id=str(group_id),
-                group_snapshot=_group_snapshot(group_id),
-            )
-            for topic_name in selected_names
-        ])
+        return RecommendedTopic.objects.bulk_create(
+            [
+                RecommendedTopic(
+                    topic_name=topic_name,
+                    group_identity_id=str(group_id),
+                    group_snapshot=_group_snapshot(group_id),
+                )
+                for topic_name in selected_names
+            ]
+        )
 
     def _get_grs_topics(self, group_id):
         """Si algún miembro del grupo (resuelto vía profile_identity_backend,

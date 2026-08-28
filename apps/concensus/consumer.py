@@ -25,7 +25,6 @@ class GroupConsumer(AsyncWebsocketConsumer):
         """
         self.group_id = self.scope["url_route"]["kwargs"]["group_id"]
         self.group_name = f"group_{self.group_id}"
-        # self.redis = redis.StrictRedis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=0)
         self.redis = redis.StrictRedis(
             host=settings.REDIS_HOST,
             port=settings.REDIS_PORT,
@@ -49,45 +48,7 @@ class GroupConsumer(AsyncWebsocketConsumer):
 
     # 2. Método de Envío de Mensajes del WebSocket del Servidor
     async def receive(self, text_data):
-
         pass
-
-        """
-        Método asíncrono llamado cuando se recibe un mensaje del cliente.
-        Procesa el mensaje, creando o obteniendo un tema recomendado y añadiéndolo al grupo.
-        Luego, envía un mensaje al grupo con los detalles del tema añadido.
-        """
-        """ try:
-            data = json.loads(text_data)
-            logger.info(f'Data received: {data}')  # Loguear datos recibidos
-
-            # Verificar que 'user_id' está en los datos recibidos
-            if 'topic' not in data or 'user_id' not in data['topic']:
-                logger.error(f'Error: user_id is required, {data} received')
-                return
-
-            user_id = data['topic']['user_id']
-            topic_name = data['topic']['topic']
-
-            RecommendedTopic = apps.get_model('concensus', 'RecommendedTopic')
-            TopicAddedUser = apps.get_model('concensus', 'TopicAddedUser')
-
-            recommended_topic, created = await sync_to_async(RecommendedTopic.objects.get_or_create)(
-                topic_name=topic_name, defaults={'group_id': self.group_id}
-            )
-            topic_added = await sync_to_async(TopicAddedUser.objects.create)(
-                topic=recommended_topic, group_id=self.group_id, user_id=user_id
-            )
-
-            await self.notify_new_topic(topic_added)
-            logger.info(f'SE ENVIO LAS NOTIFICAIONES DE NUEVO TOPIC:') 
-
-        except json.JSONDecodeError:
-            logger.error('Error: received data is not valid JSON')
-        except KeyError as e:
-            logger.error(f'Error: Missing key in data received: {e}')
-        except Exception as e:
-            logger.error(f'Unexpected error: {e}') """
 
     async def group_message(self, event):
         """
@@ -147,65 +108,3 @@ class GroupConsumer(AsyncWebsocketConsumer):
                 "message": {"type": "connection_count", "active_connections": count},
             },
         )
-
-    """ async def notify_new_topic(self, topic_added):
-        
-        #Notifica a los clientes que se ha añadido un nuevo tema al grupo.
-       
-        await self.channel_layer.group_send(
-            self.group_name,
-            {
-                'type': 'group_message',
-                'message': {
-                    'type': 'new_topic',
-                    'id': topic_added.id,
-                    'topic_name': topic_added.topic.topic_name,
-                    'user_id': topic_added.user_id,
-                    'group_id': topic_added.group_id,
-                    'added_at': topic_added.added_at.isoformat()
-                }
-            }
-        ) """
-
-    """ Notificaciones de nuevo tema """
-    """ async def notify_new_topic(self, topic_added):
-        message = f'{topic_added.user.username} 📥 added {topic_added.topic.topic_name}'
-        await self.create_notification(topic_added.user, topic_added.group, 'new_topic', message)
-        
-        await self.channel_layer.group_send(
-            self.group_name,
-            {
-                'type': 'group_message',
-                'message': {
-                    'type': 'new_topic',
-                    'id': topic_added.id,
-                    'topic_name': topic_added.topic.topic_name,
-                    'user_id': topic_added.user_id,
-                    'group_id': topic_added.group_id,
-                    'added_at': topic_added.added_at.isoformat(),
-                    'message2': message,
-                }
-            }
-        ) """
-
-    """ @sync_to_async
-    def create_notification(self, user, group, notification_type, message):
-        NotificationPhaseOne.objects.create(
-            user=user,
-            group=group,
-            notification_type=notification_type,
-            message=message
-        )
-     """
-    """ @sync_to_async
-    def create_notification(self, user, group, notification_type, message):
-        NotificationPhaseOne = apps.get_model('concensus', 'NotificationPhaseOne').objects.create(
-            user=user,
-            group=group,
-            notification_type=notification_type,
-            message=message
-        ) """
-
-
-# concensus_recommendedtopic
-# concensus_topicaddeduser

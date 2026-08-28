@@ -69,17 +69,16 @@ class LikeToggleSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         """Validate that the object exists"""
+        from apps.feeds.domain.entities.comment import Comment
+        from apps.feeds.domain.entities.feed_post import FeedPost
+
         content_type = attrs["content_type"]
         object_id = attrs["object_id"]
 
         try:
             if content_type == "feedpost":
-                from apps.feeds.domain.entities.feed_post import FeedPost
-
                 FeedPost.objects.get(id=object_id)
             elif content_type == "comment":
-                from apps.feeds.domain.entities.comment import Comment
-
                 comment = Comment.objects.get(id=object_id)
                 if comment.is_deleted:
                     raise serializers.ValidationError("Cannot like deleted comment")

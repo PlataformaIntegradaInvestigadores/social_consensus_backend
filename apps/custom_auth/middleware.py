@@ -28,8 +28,13 @@ class JwtAuthMiddleware(BaseMiddleware):
                 # Validar el token con SimpleJWT
                 UntypedToken(token)
 
-                # Decodificar el token y obtener el usuario
-                payload = jwt_decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+                # Decodificar el token y obtener el usuario. Debe usar la
+                # misma llave con la que SIMPLE_JWT firma los tokens
+                # (JWT_SIGNING_KEY), no SECRET_KEY: son distintas en todo
+                # ambiente real (ver .env / .env_produccion.example).
+                payload = jwt_decode(
+                    token, settings.JWT_SIGNING_KEY, algorithms=["HS256"]
+                )
 
                 # Determinar si es un usuario o una empresa
                 user_id = payload.get("user_id") or payload.get("sub")
