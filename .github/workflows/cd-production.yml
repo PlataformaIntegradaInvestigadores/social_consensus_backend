@@ -115,12 +115,12 @@ jobs:
       - name: Reconstruir contenedor
         run: |
           cd /opt/centinela
-          docker compose up -d --build --no-deps social-web
+          docker compose up -d --build --no-deps social-service
 
       - name: Ejecutar migraciones
         run: |
           sleep 10
-          docker exec centinela-social-web-1 python manage.py migrate --no-input 2>&1 \
+          docker exec centinela-social-service-1 python manage.py migrate --no-input 2>&1 \
             || echo "⚠️ Migraciones con errores — revisar custom_auth en main"
 
       - name: Health check con rollback automático
@@ -138,7 +138,7 @@ jobs:
           if [ "$HEALTHY" = "false" ]; then
             echo "Health check fallido — rollback al commit anterior"
             cd /opt/centinela/social_consensus_backend && git reset --hard HEAD~1
-            cd /opt/centinela && docker compose up -d --build --no-deps social-web
+            cd /opt/centinela && docker compose up -d --build --no-deps social-service
             exit 1
           fi
           echo "Deploy exitoso — social_consensus_backend en producción"

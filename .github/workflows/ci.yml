@@ -135,7 +135,7 @@ jobs:
       - name: Reconstruir contenedor
         run: |
           cd /opt/centinela
-          docker compose up -d --build --no-deps social-web celery-worker celery-beat
+          docker compose up -d --build --no-deps social-service social-worker social-beat
 
       - name: Health check
         run: |
@@ -152,6 +152,6 @@ jobs:
           if [ "$HEALTHY" = "false" ]; then
             echo "Health check fallido — rollback"
             cd /opt/centinela/social_consensus_backend && git reset --hard HEAD~1
-            cd /opt/centinela && docker compose up -d --build --no-deps social-web celery-worker celery-beat
+            cd /opt/centinela && docker compose up -d --build --no-deps social-service social-worker social-beat
             exit 1
           fi

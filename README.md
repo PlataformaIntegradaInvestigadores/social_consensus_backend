@@ -1,8 +1,8 @@
-# Centinela — social_consensus_backend
+# Centinela — social-service
 
 Servicio Django que maneja autenticación, feeds sociales (posts, comentarios, likes, encuestas), consenso científico entre investigadores y ofertas laborales (jobs). Expone API REST + WebSockets (Django Channels) para actualizaciones en tiempo real de feeds.
 
-Parte del org multi-repo `PlataformaIntegradaInvestigadores`. Se comunica con el resto de la plataforma a través de `api-gateway` (nginx), en la red Docker `centinela-net`.
+Parte del org multi-repo `PlataformaIntegradaInvestigadores`. Se comunica con el resto de la plataforma a través de `gateway-service` (nginx), en la red Docker `centinela-net`.
 
 ## Stack
 
@@ -56,7 +56,7 @@ apps/<app>/
 docker compose up -d --build
 ```
 
-Levanta `web` (Daphne, puerto `8000`), `db` (Postgres+pgvector, puerto `5433`→`5432`), `redis`, `celery_worker` y `celery_beat`.
+Levanta `social-service` (Daphne, puerto `8000`), `social-db` (Postgres+pgvector, puerto `5433`→`5432`), `social-redis`, `social-worker` y `social-beat`.
 
 ### Sin Docker (desarrollo)
 

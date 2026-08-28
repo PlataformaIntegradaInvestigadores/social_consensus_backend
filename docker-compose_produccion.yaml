@@ -2,7 +2,7 @@
 # docker compose --env-file .env_produccion -f docker-compose_produccion.yaml up -d
 
 services:
-  web:
+  social-service:
     build: .
     command: daphne -b 0.0.0.0 -p 8000 project.asgi:application
     restart: unless-stopped
@@ -11,27 +11,27 @@ services:
     expose:
       - "8000"
     depends_on:
-      db:
+      social-db:
         condition: service_healthy
-      redis:
+      social-redis:
         condition: service_healthy
     env_file:
       - path: .env_produccion
         required: false
     environment:
       - DJANGO_SETTINGS_MODULE=project.settings
-      - DB_HOST=db
+      - DB_HOST=social-db
       - DB_PORT=5432
-      - REDIS_HOST=redis
+      - REDIS_HOST=social-redis
       - REDIS_PORT=6379
     volumes:
       - social_media:/app/apps/media
     networks:
       centinela-net:
         aliases:
-          - social-consensus-web
+          - social-service
 
-  db:
+  social-db:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     expose:
@@ -51,9 +51,9 @@ services:
     networks:
       centinela-net:
         aliases:
-          - social-postgres
+          - social-db
 
-  redis:
+  social-redis:
     image: redis:6
     restart: unless-stopped
     expose:
@@ -76,50 +76,50 @@ services:
         aliases:
           - social-redis
 
-  celery_worker:
+  social-worker:
     build: .
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     command: celery -A project worker -l info
     depends_on:
-      db:
+      social-db:
         condition: service_healthy
-      redis:
+      social-redis:
         condition: service_healthy
     env_file:
       - path: .env_produccion
         required: false
     environment:
       - DJANGO_SETTINGS_MODULE=project.settings
-      - DB_HOST=db
+      - DB_HOST=social-db
       - DB_PORT=5432
-      - REDIS_HOST=redis
+      - REDIS_HOST=social-redis
       - REDIS_PORT=6379
     volumes:
       - social_media:/app/apps/media
     networks:
       - centinela-net
 
-  celery_beat:
+  social-beat:
     build: .
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     command: celery -A project beat -l info
     depends_on:
-      db:
+      social-db:
         condition: service_healthy
-      redis:
+      social-redis:
         condition: service_healthy
     env_file:
       - path: .env_produccion
         required: false
     environment:
       - DJANGO_SETTINGS_MODULE=project.settings
-      - DB_HOST=db
+      - DB_HOST=social-db
       - DB_PORT=5432
-      - REDIS_HOST=redis
+      - REDIS_HOST=social-redis
       - REDIS_PORT=6379
     volumes:
       - social_media:/app/apps/media
