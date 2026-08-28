@@ -28,9 +28,11 @@ from drf_spectacular.views import (
 from apps.custom_auth.infrastructure.api.v1.views.retired_legacy_identity_views import (
     RetiredLegacyIdentityRouteView,
 )
+from project.health import health_check
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("health/", health_check),
     path("api/schema", SpectacularAPIView.as_view(), name="schema"),
     path(
         "api/schema/swagger-ui/",
