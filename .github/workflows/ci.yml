@@ -128,7 +128,7 @@ jobs:
     steps:
       - name: Actualizar codigo
         run: |
-          cd /opt/centinela/social_consensus_backend
+          cd /opt/centinela/social-service
           git fetch origin develop
           git reset --hard origin/develop
 
@@ -151,7 +151,7 @@ jobs:
           done
           if [ "$HEALTHY" = "false" ]; then
             echo "Health check fallido — rollback"
-            cd /opt/centinela/social_consensus_backend && git reset --hard HEAD~1
+            cd /opt/centinela/social-service && git reset --hard HEAD~1
             cd /opt/centinela && docker compose up -d --build --no-deps social-service social-worker social-beat
             exit 1
           fi
