@@ -1,7 +1,11 @@
+import logging
+
 from django.conf import settings
 from django.db import connection
 from django.http import JsonResponse
 import redis
+
+logger = logging.getLogger(__name__)
 
 
 def health_check(request):
@@ -13,6 +17,7 @@ def health_check(request):
             password=settings.REDIS_PASSWORD,
             socket_connect_timeout=3,
         ).ping()
-    except Exception as exc:
-        return JsonResponse({"status": "error", "error": str(exc)}, status=503)
+    except Exception:
+        logger.exception("Health check failed")
+        return JsonResponse({"status": "error"}, status=503)
     return JsonResponse({"status": "ok"})
