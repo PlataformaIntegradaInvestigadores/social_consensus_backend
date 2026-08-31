@@ -78,6 +78,10 @@ Ver `.env.example`. Variables clave:
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Conexión a Redis (debe coincidir con `redis.conf`) |
 | `DEBUG` / `ALLOWED_HOSTS` | Configuración estándar de Django |
 
+## Documentación (Swagger)
+
+Schema OpenAPI: `GET /api/schema?format=json`. UI local propia en `/api/schema/swagger-ui/` (y Redoc en `/api/schema/redoc/`), además disponible centralizada en el hub del `gateway-service`: `/api/docs/v1/social`. `SPECTACULAR_SETTINGS` recorta el prefijo interno `/api` y declara `servers: [{"url": "/api/social"}]` para que "Try it out" funcione a través del gateway.
+
 ## Tests
 
 ```bash
