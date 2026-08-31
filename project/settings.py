@@ -194,6 +194,12 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API para la aplicación Social Consensus",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Recorta el prefijo interno del spec y lo reemplaza por la ruta publica
+    # detras del gateway (nginx.conf: /api/social/ -> /api/), para que
+    # "Try it out" en Swagger UI pegue a la URL real.
+    "SCHEMA_PATH_PREFIX": "/api",
+    "SCHEMA_PATH_PREFIX_TRIM": True,
+    "SERVERS": [{"url": "/api/social", "description": "Gateway"}],
     # OTHER SETTINGS
 }
 
