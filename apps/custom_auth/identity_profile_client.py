@@ -56,7 +56,7 @@ def get_identity_user_snapshot(user_id, authorization_header="", cache=None):
         return cache[cache_key]
 
     base_url = getattr(
-        settings, "PROFILE_IDENTITY_BASE_URL", "http://profile-identity-web:8002"
+        settings, "PROFILE_IDENTITY_BASE_URL", "http://identity-service:8002"
     )
     url = urljoin(base_url.rstrip("/") + "/", f"api/users/{user_id}/")
     headers = {}
@@ -83,7 +83,7 @@ def get_identity_group_detail(group_id, authorization_header=""):
         return None
 
     base_url = getattr(
-        settings, "PROFILE_IDENTITY_BASE_URL", "http://profile-identity-web:8002"
+        settings, "PROFILE_IDENTITY_BASE_URL", "http://identity-service:8002"
     )
     url = urljoin(base_url.rstrip("/") + "/", f"api/groups/{group_id}/")
     headers = {}

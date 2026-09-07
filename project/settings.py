@@ -286,5 +286,5 @@ PROFILE_SYNC_INTERNAL_TOKEN = os.getenv("PROFILE_SYNC_INTERNAL_TOKEN", "")
 
 # Fuente canonica de identidad usada por social para resolver snapshots de autor.
 PROFILE_IDENTITY_BASE_URL = os.getenv(
-    "PROFILE_IDENTITY_BASE_URL", "http://profile-identity-web:8002"
+    "PROFILE_IDENTITY_BASE_URL", "http://identity-service:8002"
 )
